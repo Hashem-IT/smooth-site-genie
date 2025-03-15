@@ -19,6 +19,24 @@ import { ChatProvider } from "./context/ChatContext";
 
 const queryClient = new QueryClient();
 
+// Update localStorage key to match new app name
+const updateLocalStorageKeys = () => {
+  if (localStorage.getItem("delivery-connect-user")) {
+    const userData = localStorage.getItem("delivery-connect-user");
+    localStorage.setItem("easydrop-user", userData || "");
+    localStorage.removeItem("delivery-connect-user");
+  }
+  
+  if (localStorage.getItem("delivery-connect-orders")) {
+    const ordersData = localStorage.getItem("delivery-connect-orders");
+    localStorage.setItem("easydrop-orders", ordersData || "");
+    localStorage.removeItem("delivery-connect-orders");
+  }
+};
+
+// Run once on app initialization
+updateLocalStorageKeys();
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

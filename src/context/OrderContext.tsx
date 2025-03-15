@@ -39,7 +39,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     // Load orders from localStorage
-    const savedOrders = localStorage.getItem("delivery-connect-orders");
+    const savedOrders = localStorage.getItem("easydrop-orders");
     if (savedOrders) {
       try {
         // Parse the saved orders and ensure dates are properly converted
@@ -59,7 +59,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Save orders to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem("delivery-connect-orders", JSON.stringify(orders));
+    localStorage.setItem("easydrop-orders", JSON.stringify(orders));
   }, [orders]);
 
   // Get orders for the current user
@@ -73,7 +73,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     : [];
 
-  // Get available orders for drivers
+  // Get available orders for drivers - make ALL pending orders available, not filtering by anything
   const availableOrders = user?.role === "driver"
     ? orders.filter((order) => order.status === "pending")
     : [];

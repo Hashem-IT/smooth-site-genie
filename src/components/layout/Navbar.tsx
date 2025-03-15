@@ -17,8 +17,9 @@ const Navbar: React.FC = () => {
     <nav className="bg-white shadow-sm py-4 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
-          <Link to="/" className="font-bold text-2xl text-primary">
-            DeliveryConnect
+          <Link to="/" className="font-bold text-2xl text-primary flex items-center gap-2">
+            <img src="/logo.png" alt="EasyDrop Logo" className="h-10 w-auto" />
+            <span>EasyDrop</span>
           </Link>
 
           {isMobile ? (
@@ -58,14 +59,6 @@ const Navbar: React.FC = () => {
                     >
                       About Us
                     </Link>
-                    <div className="pt-2 flex flex-col space-y-2">
-                      <Button asChild variant="outline">
-                        <Link to="/login">Login</Link>
-                      </Button>
-                      <Button asChild>
-                        <Link to="/register">Register</Link>
-                      </Button>
-                    </div>
                   </div>
                 </div>
               )}
@@ -85,14 +78,6 @@ const Navbar: React.FC = () => {
                 <Link to="/about" className="text-gray-700 hover:text-primary transition-colors">
                   About Us
                 </Link>
-              </div>
-              <div className="flex space-x-4">
-                <Button asChild variant="outline">
-                  <Link to="/login">Login</Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/register">Register</Link>
-                </Button>
               </div>
             </>
           )}

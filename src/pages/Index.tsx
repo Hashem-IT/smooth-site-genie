@@ -10,8 +10,11 @@ const Index = () => {
     <Layout>
       <div className="container py-16">
         <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="flex justify-center mb-6">
+            <img src="/logo.png" alt="EasyDrop Logo" className="h-24 w-auto" />
+          </div>
           <h1 className="text-4xl font-bold mb-4">
-            Business and Driver Delivery Platform
+            EasyDrop Delivery Service
           </h1>
           <p className="text-xl text-muted-foreground">
             Connect businesses with drivers for efficient and reliable delivery services

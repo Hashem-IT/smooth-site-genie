@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, UserRole } from "@/types";
 import { useNavigate } from "react-router-dom";
@@ -38,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check for saved user in localStorage on initial load
-    const savedUser = localStorage.getItem("delivery-connect-user");
+    const savedUser = localStorage.getItem("easydrop-user");
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -58,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (foundUser) {
         setUser(foundUser);
-        localStorage.setItem("delivery-connect-user", JSON.stringify(foundUser));
+        localStorage.setItem("easydrop-user", JSON.stringify(foundUser));
         toast({
           title: "Login successful",
           description: `Welcome back, ${foundUser.name}!`,
@@ -81,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         MOCK_USERS.push(newUser);
         setUser(newUser);
-        localStorage.setItem("delivery-connect-user", JSON.stringify(newUser));
+        localStorage.setItem("easydrop-user", JSON.stringify(newUser));
         
         toast({
           title: "Login successful",
@@ -136,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       MOCK_USERS.push(newUser);
       setUser(newUser);
-      localStorage.setItem("delivery-connect-user", JSON.stringify(newUser));
+      localStorage.setItem("easydrop-user", JSON.stringify(newUser));
       
       toast({
         title: "Registration successful",
@@ -162,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("delivery-connect-user");
+    localStorage.removeItem("easydrop-user");
     navigate("/");
     toast({
       title: "Logged out",

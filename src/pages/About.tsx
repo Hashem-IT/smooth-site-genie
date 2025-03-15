@@ -6,11 +6,11 @@ const About = () => {
   return (
     <Layout>
       <div className="container py-10 max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">About DeliveryConnect</h1>
+        <h1 className="text-3xl font-bold mb-6">About EasyDrop</h1>
         
         <div className="prose prose-lg">
           <p className="lead text-xl mb-6">
-            DeliveryConnect is a platform that connects businesses with independent 
+            EasyDrop is a platform that connects businesses with independent 
             drivers to provide efficient and reliable delivery services.
           </p>
           
@@ -43,7 +43,7 @@ const About = () => {
           
           <h2 className="text-2xl font-semibold mt-8 mb-4">Our Team</h2>
           <p>
-            DeliveryConnect was founded by a team of logistics experts and technology 
+            EasyDrop was founded by a team of logistics experts and technology 
             enthusiasts who recognized the need for a more efficient delivery solution 
             in the market. Our team is dedicated to continuously improving the platform 
             to meet the needs of our users.
@@ -53,8 +53,8 @@ const About = () => {
           <p>
             We're always looking to improve our service. If you have any questions, 
             suggestions, or feedback, please don't hesitate to contact us at 
-            <a href="mailto:info@deliveryconnect.com" className="text-primary font-medium ml-1">
-              info@deliveryconnect.com
+            <a href="mailto:info@easydrop.com" className="text-primary font-medium ml-1">
+              info@easydrop.com
             </a>
           </p>
         </div>
