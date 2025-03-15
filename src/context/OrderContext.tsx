@@ -41,7 +41,19 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Load orders from localStorage
     const savedOrders = localStorage.getItem("delivery-connect-orders");
     if (savedOrders) {
-      setOrders(JSON.parse(savedOrders));
+      try {
+        // Parse the saved orders and ensure dates are properly converted
+        const parsedOrders = JSON.parse(savedOrders, (key, value) => {
+          if (key === "createdAt") {
+            return new Date(value);
+          }
+          return value;
+        });
+        setOrders(parsedOrders);
+      } catch (error) {
+        console.error("Error parsing saved orders:", error);
+        setOrders(MOCK_ORDERS);
+      }
     }
   }, []);
 

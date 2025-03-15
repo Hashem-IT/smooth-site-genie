@@ -20,10 +20,12 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { useOrders } from "@/context/OrderContext";
 import { Package, Plus, Loader2, Upload } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const orderSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -53,8 +55,13 @@ const OrderForm: React.FC = () => {
   });
 
   const onSubmit = (data: OrderFormData) => {
+    // Make sure to include all required fields
     createOrder({
-      ...data,
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      weight: data.weight,
+      size: data.size,
       imageUrl,
     });
     form.reset();
@@ -68,11 +75,33 @@ const OrderForm: React.FC = () => {
 
     // Simulate file upload
     setIsUploading(true);
-    setTimeout(() => {
-      // For demo, we'll just use a placeholder image
-      setImageUrl("/placeholder.svg");
+    
+    // Create a FileReader to read the image
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        // Set the image URL to the data URL
+        setImageUrl(event.target.result.toString());
+        setIsUploading(false);
+        toast({
+          title: "Image uploaded",
+          description: "Your image has been successfully uploaded.",
+        });
+      }
+    };
+    
+    reader.onerror = () => {
       setIsUploading(false);
-    }, 1500);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    };
+    
+    // Read the file as a data URL
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -89,6 +118,9 @@ const OrderForm: React.FC = () => {
             <Package className="h-5 w-5" />
             <span>Create New Order</span>
           </DialogTitle>
+          <DialogDescription>
+            Fill in the details to create a new delivery order.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
