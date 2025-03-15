@@ -73,7 +73,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     : [];
 
-  // Get available orders for drivers - make ALL pending orders available, not filtering by anything
+  // Get available orders for drivers
   const availableOrders = user?.role === "driver"
     ? orders.filter((order) => order.status === "pending")
     : [];

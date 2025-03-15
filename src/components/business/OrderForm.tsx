@@ -3,124 +3,98 @@ import React, { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
-} from "@/components/ui/form";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogFooter,
-  DialogDescription
-} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Upload } from "lucide-react";
 import { useOrders } from "@/context/OrderContext";
-import { Package, Plus, Loader2, Upload } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 
 const orderSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  price: z.coerce.number().positive("Price must be positive"),
-  weight: z.coerce.number().positive("Weight must be positive"),
-  size: z.string().min(1, "Size is required"),
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  description: z.string().min(10, { message: "Description must be at least 10 characters." }),
+  price: z.coerce.number().min(1, { message: "Price must be at least $1." }),
+  weight: z.coerce.number().min(0.1, { message: "Weight must be at least 0.1 kg." }),
+  size: z.string().min(1, { message: "Size is required." }),
 });
 
-type OrderFormData = z.infer<typeof orderSchema>;
+type OrderFormValues = z.infer<typeof orderSchema>;
 
-const OrderForm: React.FC = () => {
-  const [open, setOpen] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | undefined>();
-  const [isUploading, setIsUploading] = useState(false);
+const OrderForm = () => {
   const { createOrder } = useOrders();
+  const [open, setOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
-  const form = useForm<OrderFormData>({
+  const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
       name: "",
       description: "",
       price: 0,
       weight: 0,
-      size: "",
+      size: "Small",
     },
   });
 
-  const onSubmit = (data: OrderFormData) => {
-    // Make sure to include all required fields
-    createOrder({
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      weight: data.weight,
-      size: data.size,
-      imageUrl,
-    });
-    form.reset();
-    setImageUrl(undefined);
-    setOpen(false);
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      // Create URL for preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Simulate file upload
-    setIsUploading(true);
-    
-    // Create a FileReader to read the image
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        // Set the image URL to the data URL
-        setImageUrl(event.target.result.toString());
-        setIsUploading(false);
-        toast({
-          title: "Image uploaded",
-          description: "Your image has been successfully uploaded.",
+  const onSubmit = (data: OrderFormValues) => {
+    // Create a base64 representation of the image for storage
+    if (imageFile) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const imageUrl = reader.result as string;
+        createOrder({
+          ...data,
+          imageUrl: imageUrl || "/placeholder.svg",
         });
-      }
-    };
-    
-    reader.onerror = () => {
-      setIsUploading(false);
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload image. Please try again.",
-        variant: "destructive",
+        setOpen(false);
+        resetForm();
+      };
+      reader.readAsDataURL(imageFile);
+    } else {
+      createOrder({
+        ...data,
+        imageUrl: "/placeholder.svg",
       });
-    };
-    
-    // Read the file as a data URL
-    reader.readAsDataURL(file);
+      setOpen(false);
+      resetForm();
+    }
+  };
+
+  const resetForm = () => {
+    form.reset();
+    setSelectedImage(null);
+    setImageFile(null);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => {
+      setOpen(value);
+      if (!value) resetForm();
+    }}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus size={18} />
-          <span>Create New Order</span>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
+          <span>New Order</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            <span>Create New Order</span>
-          </DialogTitle>
-          <DialogDescription>
-            Fill in the details to create a new delivery order.
-          </DialogDescription>
+          <DialogTitle>Create a new delivery order</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -131,7 +105,7 @@ const OrderForm: React.FC = () => {
                 <FormItem>
                   <FormLabel>Order Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter order name" {...field} />
+                    <Input placeholder="E.g., Fragile package delivery" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -144,10 +118,10 @@ const OrderForm: React.FC = () => {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Describe the order details" 
-                      className="min-h-[80px]" 
-                      {...field} 
+                    <Textarea
+                      placeholder="Delivery details, special instructions, etc."
+                      className="resize-none h-20"
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -160,15 +134,9 @@ const OrderForm: React.FC = () => {
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price (€)</FormLabel>
+                    <FormLabel>Price ($)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.01" 
-                        min="0" 
-                        placeholder="0.00" 
-                        {...field} 
-                      />
+                      <Input type="number" min={1} step={0.01} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -181,13 +149,7 @@ const OrderForm: React.FC = () => {
                   <FormItem>
                     <FormLabel>Weight (kg)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.1" 
-                        min="0" 
-                        placeholder="0.0" 
-                        {...field} 
-                      />
+                      <Input type="number" min={0.1} step={0.1} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -201,71 +163,46 @@ const OrderForm: React.FC = () => {
                 <FormItem>
                   <FormLabel>Size</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Small, Medium, Large, etc." 
-                      {...field} 
-                    />
+                    <Input placeholder="E.g., Small, Medium, Large" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             
-            <div className="space-y-2">
-              <FormLabel htmlFor="image">Image (Optional)</FormLabel>
-              <div className="flex flex-col items-center justify-center gap-4 border-2 border-dashed border-gray-300 rounded-md p-4">
-                {imageUrl ? (
-                  <div className="relative w-full">
-                    <img 
-                      src={imageUrl} 
-                      alt="Order"
-                      className="object-cover h-40 w-full rounded-md"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => setImageUrl(undefined)}
-                    >
-                      Remove
-                    </Button>
+            <div>
+              <FormLabel htmlFor="image">Package Image</FormLabel>
+              <div className="flex items-center gap-4 mt-2">
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <div className="flex items-center gap-2 rounded-md border border-input p-2 hover:bg-muted transition-colors">
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Image</span>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-10 w-10 text-gray-400" />
-                    <p className="text-sm text-gray-500">Click to upload or drag and drop</p>
-                    {isUploading ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Uploading...</span>
-                      </div>
-                    ) : (
-                      <label className="relative cursor-pointer">
-                        <Button type="button" variant="outline" size="sm">
-                          Select Image
-                        </Button>
-                        <input
-                          id="image"
-                          type="file"
-                          accept="image/*"
-                          className="sr-only"
-                          onChange={handleFileChange}
-                          disabled={isUploading}
-                        />
-                      </label>
-                    )}
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
+                </label>
+                {selectedImage && (
+                  <div className="relative border border-input rounded-md overflow-hidden w-20 h-20">
+                    <img
+                      src={selectedImage}
+                      alt="Selected"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 )}
               </div>
             </div>
             
             <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => {
+                setOpen(false);
+                resetForm();
+              }}>
                 Cancel
               </Button>
               <Button type="submit">Create Order</Button>
