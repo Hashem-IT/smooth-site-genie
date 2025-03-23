@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Upload, Eye, EyeOff } from "lucide-react";
 import { useOrders } from "@/context/OrderContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Order } from "@/types";
 
 const orderSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -60,6 +61,11 @@ const OrderForm = () => {
         const imageUrl = reader.result as string;
         createOrder({
           ...data,
+          name: data.name,         // Ensure required fields are explicitly provided
+          description: data.description,
+          price: data.price,
+          weight: data.weight,
+          size: data.size,
           imageUrl: imageUrl || "/placeholder.svg",
         });
         setOpen(false);
@@ -69,6 +75,11 @@ const OrderForm = () => {
     } else {
       createOrder({
         ...data,
+        name: data.name,           // Ensure required fields are explicitly provided
+        description: data.description,
+        price: data.price,
+        weight: data.weight,
+        size: data.size,
         imageUrl: "/placeholder.svg",
       });
       setOpen(false);

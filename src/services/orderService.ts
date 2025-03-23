@@ -63,7 +63,7 @@ export const bookOrderItem = (
     if (order.id === orderId && order.status === "pending") {
       return {
         ...order,
-        status: "booked",
+        status: "booked" as const,  // Type assertion to ensure correct status type
         driverId: user.id,
         driverName: user.name,
       };
@@ -97,7 +97,10 @@ export const confirmOrderItem = (
 
   const updatedOrders = orders.map((order) => {
     if (order.id === orderId && order.businessId === user.id && order.status === "booked") {
-      return { ...order, status: "confirmed" };
+      return { 
+        ...order, 
+        status: "confirmed" as const  // Type assertion to ensure correct status type
+      };
     }
     return order;
   });
@@ -143,9 +146,9 @@ export const markOrderAsDelivered = (
   const updatedOrders = orders.map((order) => {
     if (order.id === orderId) {
       if (isDriver && order.driverId === user.id) {
-        return { ...order, status: "delivered" };
+        return { ...order, status: "delivered" as const };  // Type assertion to ensure correct status type
       } else if (!isDriver && order.businessId === user.id) {
-        return { ...order, status: "delivered" };
+        return { ...order, status: "delivered" as const };  // Type assertion to ensure correct status type
       }
     }
     return order;
