@@ -18,6 +18,11 @@ export const getAvailableOrders = (orders: Order[]) => {
   return orders.filter((order) => order.status === "pending");
 };
 
+export const filterOrdersByStatus = (orders: Order[], status: string) => {
+  if (status === "all") return orders;
+  return orders.filter((order) => order.status === status);
+};
+
 export const MOCK_ORDERS: Order[] = [
   {
     id: "order-1",

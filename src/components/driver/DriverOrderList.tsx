@@ -5,7 +5,7 @@ import { useOrders } from "@/context/OrderContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, X, Truck } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare, Truck, Filter } from "lucide-react";
 import { 
   Tabs, 
   TabsContent, 
@@ -15,12 +15,14 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import { useAuth } from "@/context/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DriverOrderList: React.FC = () => {
   const { user } = useAuth();
   const { availableOrders, userOrders, bookOrder, updateOrderLocation, markOrderDelivered } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   
   // Simulate location updates for active orders
   React.useEffect(() => {
@@ -60,6 +62,15 @@ const DriverOrderList: React.FC = () => {
     confirmed: "bg-green-500",
     delivered: "bg-purple-500",
   };
+
+  // Filter orders based on status
+  const filteredAvailableOrders = statusFilter === "all" 
+    ? availableOrders 
+    : availableOrders.filter(order => order.status === statusFilter);
+
+  const filteredUserOrders = statusFilter === "all"
+    ? userOrders
+    : userOrders.filter(order => order.status === statusFilter);
   
   const renderOrderCard = (order: Order, isMyOrder: boolean = false) => (
     <Card key={order.id} className="overflow-hidden">
@@ -92,7 +103,7 @@ const DriverOrderList: React.FC = () => {
           <img 
             src={order.imageUrl} 
             alt={order.name}
-            className="object-cover h-32 w-full rounded-md mt-2"
+            className="object-cover h-24 w-full rounded-md mt-2"
           />
         )}
         
@@ -145,6 +156,23 @@ const DriverOrderList: React.FC = () => {
   
   return (
     <div>
+      <div className="mb-4 flex items-center gap-2">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Filter by status:</span>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="pending">Available</SelectItem>
+            <SelectItem value="booked">Booked</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
       <Tabs defaultValue="available">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="available">Available Orders</TabsTrigger>
@@ -152,26 +180,26 @@ const DriverOrderList: React.FC = () => {
         </TabsList>
         
         <TabsContent value="available" className="space-y-4">
-          {availableOrders.length === 0 ? (
+          {filteredAvailableOrders.length === 0 ? (
             <div className="text-center p-8">
               <Package className="h-12 w-12 mx-auto text-gray-400" />
               <h3 className="mt-4 text-lg font-medium">No available orders</h3>
               <p className="mt-2 text-gray-500">Check back later for new delivery opportunities.</p>
             </div>
           ) : (
-            availableOrders.map((order) => renderOrderCard(order))
+            filteredAvailableOrders.map((order) => renderOrderCard(order))
           )}
         </TabsContent>
         
         <TabsContent value="my-orders" className="space-y-4">
-          {userOrders.length === 0 ? (
+          {filteredUserOrders.length === 0 ? (
             <div className="text-center p-8">
               <Package className="h-12 w-12 mx-auto text-gray-400" />
               <h3 className="mt-4 text-lg font-medium">No orders yet</h3>
               <p className="mt-2 text-gray-500">Book your first order to get started.</p>
             </div>
           ) : (
-            userOrders.map((order) => renderOrderCard(order, true))
+            filteredUserOrders.map((order) => renderOrderCard(order, true))
           )}
         </TabsContent>
       </Tabs>

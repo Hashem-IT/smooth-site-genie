@@ -85,7 +85,7 @@ const BusinessOrderList: React.FC = () => {
               <img 
                 src={order.imageUrl} 
                 alt={order.name}
-                className="object-cover h-32 w-full rounded-md mt-2"
+                className="object-cover h-24 w-full rounded-md mt-2"
               />
             )}
             
