@@ -19,8 +19,6 @@ const orderSchema = z.object({
   price: z.coerce.number().min(1, { message: "Price must be at least $1." }),
   weight: z.coerce.number().min(0.1, { message: "Weight must be at least 0.1 kg." }),
   size: z.enum(["Small", "Medium", "Large"]),
-  fromAddress: z.string().min(5, { message: "From address must be at least 5 characters." }),
-  toAddress: z.string().min(5, { message: "To address must be at least 5 characters." }),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -39,8 +37,6 @@ const OrderForm = () => {
       price: 0,
       weight: 0,
       size: "Small",
-      fromAddress: "",
-      toAddress: "",
     },
   });
 
@@ -65,13 +61,11 @@ const OrderForm = () => {
         const imageUrl = reader.result as string;
         createOrder({
           ...data,
-          name: data.name,
+          name: data.name,         // Ensure required fields are explicitly provided
           description: data.description,
           price: data.price,
           weight: data.weight,
           size: data.size,
-          fromAddress: data.fromAddress,
-          toAddress: data.toAddress,
           imageUrl: imageUrl || "/placeholder.svg",
         });
         setOpen(false);
@@ -81,13 +75,11 @@ const OrderForm = () => {
     } else {
       createOrder({
         ...data,
-        name: data.name,
+        name: data.name,           // Ensure required fields are explicitly provided
         description: data.description,
         price: data.price,
         weight: data.weight,
         size: data.size,
-        fromAddress: data.fromAddress,
-        toAddress: data.toAddress,
         imageUrl: "/placeholder.svg",
       });
       setOpen(false);
@@ -148,42 +140,13 @@ const OrderForm = () => {
                 </FormItem>
               )}
             />
-            
-            <FormField
-              control={form.control}
-              name="fromAddress"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pickup Address</FormLabel>
-                  <FormControl>
-                    <Input placeholder="E.g., Hauptstraße 1, 10115 Berlin" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="toAddress"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Delivery Address</FormLabel>
-                  <FormControl>
-                    <Input placeholder="E.g., Friedrichstraße 43, 10117 Berlin" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price (€)</FormLabel>
+                    <FormLabel>Price ($)</FormLabel>
                     <FormControl>
                       <Input type="number" min={1} step={0.01} {...field} />
                     </FormControl>

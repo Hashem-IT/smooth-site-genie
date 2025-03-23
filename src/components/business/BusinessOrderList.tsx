@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -6,11 +5,10 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
-
 const BusinessOrderList: React.FC = () => {
   const {
     userOrders,
@@ -77,29 +75,6 @@ const BusinessOrderList: React.FC = () => {
             </div>
             
             {order.imageUrl && <img src={order.imageUrl} alt={order.name} className="h-20 w-full rounded-md mt-2 object-contain" />}
-            
-            {/* Address Information */}
-            <div className="mt-3 space-y-2">
-              {order.fromAddress && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <span className="font-medium">From: </span>
-                    <span>{order.fromAddress}</span>
-                  </div>
-                </div>
-              )}
-              
-              {order.toAddress && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <span className="font-medium">To: </span>
-                    <span>{order.toAddress}</span>
-                  </div>
-                </div>
-              )}
-            </div>
             
             {order.driverName && <div className="mt-2 p-2 bg-muted rounded-md">
                 <span className="text-sm font-medium">Driver: {order.driverName}</span>
