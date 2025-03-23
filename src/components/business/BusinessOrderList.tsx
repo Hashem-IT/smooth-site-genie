@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Clock, CheckCircle, MapPin, MessageSquare } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
 
@@ -85,7 +85,7 @@ const BusinessOrderList: React.FC = () => {
               <img 
                 src={order.imageUrl} 
                 alt={order.name}
-                className="object-cover h-24 w-full rounded-md mt-2"
+                className="object-cover h-20 w-full rounded-md mt-2" // Reduced from h-24 to h-20
               />
             )}
             
@@ -148,6 +148,9 @@ const BusinessOrderList: React.FC = () => {
                   <MessageSquare className="h-5 w-5" />
                   <span>Chat - {selectedOrder.name}</span>
                 </DialogTitle>
+                <DialogDescription>
+                  Chat with {selectedOrder.driverName || "the driver"} about this order
+                </DialogDescription>
               </DialogHeader>
               <ChatInterface orderId={selectedOrder.id} />
             </DialogContent>
@@ -160,6 +163,9 @@ const BusinessOrderList: React.FC = () => {
                   <MapPin className="h-5 w-5" />
                   <span>Track Order - {selectedOrder.name}</span>
                 </DialogTitle>
+                <DialogDescription>
+                  Track the location of your order in real-time
+                </DialogDescription>
               </DialogHeader>
               <div className="h-[400px]">
                 <OrderMap order={selectedOrder} />

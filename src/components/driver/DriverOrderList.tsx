@@ -12,7 +12,7 @@ import {
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import { useAuth } from "@/context/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -103,7 +103,7 @@ const DriverOrderList: React.FC = () => {
           <img 
             src={order.imageUrl} 
             alt={order.name}
-            className="object-cover h-24 w-full rounded-md mt-2"
+            className="object-cover h-20 w-full rounded-md mt-2" // Reduced from h-24 to h-20
           />
         )}
         
@@ -212,6 +212,9 @@ const DriverOrderList: React.FC = () => {
                 <MessageSquare className="h-5 w-5" />
                 <span>Chat - {selectedOrder.name}</span>
               </DialogTitle>
+              <DialogDescription>
+                Chat with {selectedOrder.businessName} about this order
+              </DialogDescription>
             </DialogHeader>
             <ChatInterface orderId={selectedOrder.id} />
           </DialogContent>
