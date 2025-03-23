@@ -26,6 +26,8 @@ export interface Order {
     lat: number;
     lng: number;
   };
+  fromAddress?: string;
+  toAddress?: string;
 }
 
 export interface Message {
