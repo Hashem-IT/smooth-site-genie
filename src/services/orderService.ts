@@ -1,0 +1,162 @@
+
+import { Order } from "@/types";
+import { User } from "@/types";
+import { toast } from "@/hooks/use-toast";
+import { getFromStorage, saveToStorage } from "@/utils/storage";
+import { MOCK_ORDERS } from "@/utils/orderUtils";
+
+const STORAGE_KEY = "easydrop-orders";
+
+export const loadOrders = (): Order[] => {
+  return getFromStorage<Order[]>(STORAGE_KEY, MOCK_ORDERS);
+};
+
+export const saveOrders = (orders: Order[]): void => {
+  saveToStorage(STORAGE_KEY, orders);
+};
+
+export const createNewOrder = (
+  user: User | null, 
+  orderData: Omit<Order, "id" | "businessId" | "businessName" | "status" | "createdAt">
+): Order | null => {
+  if (!user || user.role !== "business") {
+    toast({
+      title: "Error",
+      description: "Only businesses can create orders",
+      variant: "destructive",
+    });
+    return null;
+  }
+
+  const newOrder: Order = {
+    id: `order-${Date.now()}`,
+    businessId: user.id,
+    businessName: user.name,
+    status: "pending",
+    createdAt: new Date(),
+    ...orderData,
+  };
+
+  toast({
+    title: "Order created",
+    description: "Your order has been created successfully.",
+  });
+
+  return newOrder;
+};
+
+export const bookOrderItem = (
+  user: User | null,
+  orders: Order[],
+  orderId: string
+): Order[] => {
+  if (!user || user.role !== "driver") {
+    toast({
+      title: "Error",
+      description: "Only drivers can book orders",
+      variant: "destructive",
+    });
+    return orders;
+  }
+
+  const updatedOrders = orders.map((order) => {
+    if (order.id === orderId && order.status === "pending") {
+      return {
+        ...order,
+        status: "booked",
+        driverId: user.id,
+        driverName: user.name,
+      };
+    }
+    return order;
+  });
+
+  if (updatedOrders.some(order => order.id === orderId && order.status === "booked")) {
+    toast({
+      title: "Order booked",
+      description: "You have successfully booked this order. Wait for confirmation.",
+    });
+  }
+
+  return updatedOrders;
+};
+
+export const confirmOrderItem = (
+  user: User | null,
+  orders: Order[],
+  orderId: string
+): Order[] => {
+  if (!user || user.role !== "business") {
+    toast({
+      title: "Error",
+      description: "Only businesses can confirm orders",
+      variant: "destructive",
+    });
+    return orders;
+  }
+
+  const updatedOrders = orders.map((order) => {
+    if (order.id === orderId && order.businessId === user.id && order.status === "booked") {
+      return { ...order, status: "confirmed" };
+    }
+    return order;
+  });
+
+  if (updatedOrders.some(order => order.id === orderId && order.status === "confirmed")) {
+    toast({
+      title: "Order confirmed",
+      description: "You have confirmed this order. The driver can now proceed with delivery.",
+    });
+  }
+
+  return updatedOrders;
+};
+
+export const updateOrderLocationData = (
+  user: User | null,
+  orders: Order[],
+  orderId: string,
+  lat: number,
+  lng: number
+): Order[] => {
+  if (!user || user.role !== "driver") {
+    return orders;
+  }
+
+  return orders.map((order) => {
+    if (order.id === orderId && order.driverId === user.id) {
+      return { ...order, location: { lat, lng } };
+    }
+    return order;
+  });
+};
+
+export const markOrderAsDelivered = (
+  user: User | null,
+  orders: Order[],
+  orderId: string
+): Order[] => {
+  if (!user) return orders;
+
+  const isDriver = user.role === "driver";
+  
+  const updatedOrders = orders.map((order) => {
+    if (order.id === orderId) {
+      if (isDriver && order.driverId === user.id) {
+        return { ...order, status: "delivered" };
+      } else if (!isDriver && order.businessId === user.id) {
+        return { ...order, status: "delivered" };
+      }
+    }
+    return order;
+  });
+
+  if (isDriver && updatedOrders.some(order => order.id === orderId && order.status === "delivered")) {
+    toast({
+      title: "Order delivered",
+      description: "You have marked this order as delivered.",
+    });
+  }
+
+  return updatedOrders;
+};

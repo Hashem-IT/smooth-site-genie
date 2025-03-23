@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useChat } from "@/context/ChatContext";
 import { useAuth } from "@/context/AuthContext";
+import { useOrders } from "@/context/OrderContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
@@ -14,10 +15,18 @@ interface ChatInterfaceProps {
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
   const { orderMessages, sendMessage } = useChat();
   const { user } = useAuth();
+  const { orders } = useOrders();
   const [message, setMessage] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const messages = orderMessages(orderId);
+  const order = orders.find(o => o.id === orderId);
+  
+  // Determine if the current user can chat in this order
+  const canChat = !!user && !!order && (
+    (user.role === "business" && order.businessId === user.id) ||
+    (user.role === "driver" && order.driverId === user.id)
+  );
   
   useEffect(() => {
     // Scroll to bottom whenever messages change
@@ -26,11 +35,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
   
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() === "") return;
+    if (message.trim() === "" || !canChat) return;
     
     sendMessage(orderId, message);
     setMessage("");
   };
+  
+  if (!canChat) {
+    return (
+      <div className="flex flex-col h-[400px] max-h-[400px] items-center justify-center">
+        <p className="text-muted-foreground">
+          You don't have permission to chat about this order.
+        </p>
+      </div>
+    );
+  }
   
   return (
     <div className="flex flex-col h-[400px] max-h-[400px]">

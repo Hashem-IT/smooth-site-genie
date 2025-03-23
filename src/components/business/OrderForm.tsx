@@ -8,15 +8,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Eye, EyeOff } from "lucide-react";
 import { useOrders } from "@/context/OrderContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const orderSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   price: z.coerce.number().min(1, { message: "Price must be at least $1." }),
   weight: z.coerce.number().min(0.1, { message: "Weight must be at least 0.1 kg." }),
-  size: z.string().min(1, { message: "Size is required." }),
+  size: z.enum(["Small", "Medium", "Large"]),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -162,9 +163,21 @@ const OrderForm = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Size</FormLabel>
-                  <FormControl>
-                    <Input placeholder="E.g., Small, Medium, Large" {...field} />
-                  </FormControl>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a size" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Small">Small</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="Large">Large</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

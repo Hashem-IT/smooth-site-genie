@@ -2,19 +2,24 @@
 import React, { useState } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, X } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
 
 const BusinessOrderList: React.FC = () => {
   const { userOrders, confirmOrder } = useOrders();
+  const { user } = useAuth();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+
+  // Only show orders that belong to the current business user
+  const businessOrders = userOrders.filter(order => order.businessId === user?.id);
 
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-500",
@@ -37,7 +42,7 @@ const BusinessOrderList: React.FC = () => {
     setIsMapOpen(true);
   };
 
-  if (userOrders.length === 0) {
+  if (businessOrders.length === 0) {
     return (
       <div className="text-center p-8">
         <Package className="h-12 w-12 mx-auto text-gray-400" />
@@ -49,7 +54,7 @@ const BusinessOrderList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {userOrders.map((order) => (
+      {businessOrders.map((order) => (
         <Card key={order.id} className="overflow-hidden">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">

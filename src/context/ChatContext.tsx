@@ -1,8 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Message, UserRole } from "@/types";
+import { Message, UserRole, Order } from "@/types";
 import { useAuth } from "./AuthContext";
-import { toast } from "@/hooks/use-toast";
+import { useOrders } from "./OrderContext";
+import { filterMessagesByUserAndOrder } from "@/utils/chatUtils";
+import { loadMessages, saveMessages, createNewMessage } from "@/services/chatService";
 
 interface ChatContextType {
   messages: Message[];
@@ -12,78 +14,44 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: "msg-1",
-    orderId: "order-1",
-    senderId: "business-1",
-    senderName: "Sample Business",
-    senderRole: "business",
-    text: "Hello, is the delivery on track?",
-    createdAt: new Date(Date.now() - 3600000), // 1 hour ago
-  },
-  {
-    id: "msg-2",
-    orderId: "order-1",
-    senderId: "driver-1",
-    senderName: "Sample Driver",
-    senderRole: "driver",
-    text: "Yes, I'll be there in about 30 minutes.",
-    createdAt: new Date(Date.now() - 3000000), // 50 minutes ago
-  },
-];
-
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>([]);
   const { user } = useAuth();
+  const { orders } = useOrders();
 
   useEffect(() => {
     // Load messages from localStorage
-    const savedMessages = localStorage.getItem("delivery-connect-messages");
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
-    }
+    setMessages(loadMessages());
   }, []);
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem("delivery-connect-messages", JSON.stringify(messages));
+    saveMessages(messages);
   }, [messages]);
 
   const orderMessages = (orderId: string) => {
-    return messages.filter((message) => message.orderId === orderId);
+    if (!user) return [];
+    
+    // Find the order to get business and driver IDs
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return [];
+    
+    // Only allow messages between the business owner and the driver of this order
+    return filterMessagesByUserAndOrder(
+      messages, 
+      orderId, 
+      user.id, 
+      order.businessId, 
+      order.driverId
+    );
   };
 
   const sendMessage = (orderId: string, text: string) => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "You need to be logged in to send messages",
-        variant: "destructive",
-      });
-      return;
+    const newMessage = createNewMessage(user, orderId, text);
+    
+    if (newMessage) {
+      setMessages((prev) => [...prev, newMessage]);
     }
-
-    if (!text.trim()) {
-      toast({
-        title: "Error",
-        description: "Message cannot be empty",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      orderId,
-      senderId: user.id,
-      senderName: user.name,
-      senderRole: user.role as UserRole,
-      text,
-      createdAt: new Date(),
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
   };
 
   return (
