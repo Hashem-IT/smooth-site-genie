@@ -9,6 +9,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 // Überprüfen, ob die Umgebungsvariablen gesetzt sind und Warnungen ausgeben
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL oder Anon Key fehlt. Bitte stellen Sie sicher, dass die Umgebungsvariablen korrekt gesetzt sind.');
+  console.error('Sie müssen die .env-Datei mit Ihren tatsächlichen Supabase-Zugangsdaten aktualisieren.');
+  console.error('Die aktuellen Werte sind Platzhalter und funktionieren nicht für tatsächliche API-Aufrufe.');
 }
 
 // Dummy-Werte für Entwicklungszwecke, wenn keine echten Werte verfügbar sind
