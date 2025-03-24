@@ -2,12 +2,19 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
 
-// Ersetzen Sie diese Werte mit Ihren eigenen Supabase-Anmeldedaten
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// URL und Key aus Umgebungsvariablen abrufen
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
+// Überprüfen, ob die Umgebungsvariablen gesetzt sind und Warnungen ausgeben
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL oder Anon Key fehlt. Bitte stellen Sie sicher, dass die Umgebungsvariablen korrekt gesetzt sind.');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Dummy-Werte für Entwicklungszwecke, wenn keine echten Werte verfügbar sind
+// Dies verhindert Abstürze während der Entwicklung
+const fallbackUrl = supabaseUrl || 'https://placeholder-project.supabase.co';
+const fallbackKey = supabaseAnonKey || 'placeholder-key-for-development-only';
+
+// Supabase-Client mit Fallback-Werten erstellen
+export const supabase = createClient<Database>(fallbackUrl, fallbackKey);

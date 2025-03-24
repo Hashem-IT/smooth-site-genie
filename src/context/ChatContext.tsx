@@ -8,6 +8,7 @@ interface ChatContextType {
   messages: Message[];
   sendMessage: (orderId: string, text: string) => Promise<void>;
   loadMessages: (orderId: string) => Promise<void>;
+  orderMessages: (orderId: string) => Message[]; // Add this function to the context type
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -15,6 +16,11 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const { user } = useAuth();
+
+  // Add this function to filter messages by order ID
+  const orderMessages = (orderId: string): Message[] => {
+    return messages.filter(message => message.orderId === orderId);
+  };
 
   // Nachrichten für eine bestimmte Bestellung laden
   const loadMessages = async (orderId: string) => {
@@ -111,6 +117,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         messages,
         sendMessage,
         loadMessages,
+        orderMessages, // Add orderMessages to context value
       }}
     >
       {children}
