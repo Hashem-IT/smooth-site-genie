@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, UserRole } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface AuthContextType {
   user: User | null;
@@ -9,95 +11,145 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string, role: UserRole) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Mock users for demo purposes
-const MOCK_USERS: User[] = [
-  {
-    id: "business-1",
-    email: "business@example.com",
-    name: "Sample Business",
-    role: "business",
-  },
-  {
-    id: "driver-1",
-    email: "driver@example.com",
-    name: "Sample Driver",
-    role: "driver",
-  },
-];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Überprüfen des Authentifizierungsstatus beim ersten Laden
   useEffect(() => {
-    // Check for saved user in localStorage on initial load
-    const savedUser = localStorage.getItem("easydrop-user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    const checkSession = async () => {
+      setIsLoading(true);
+      
+      // Aktuelle Sitzung abrufen
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error("Fehler beim Abrufen der Sitzung:", error);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (session) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Fehler beim Abrufen des Profils:", profileError);
+          setIsLoading(false);
+          return;
+        }
+        
+        if (profile) {
+          const userData: User = {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+          };
+          
+          setUser(userData);
+        }
+      }
+      
+      setIsLoading(false);
+    };
+    
+    // Einmaliges Überprüfen beim Laden
+    checkSession();
+    
+    // Auf Authentifizierungsänderungen hören
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profile) {
+          const userData: User = {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+          };
+          
+          setUser(userData);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+    
+    // Aufräumen
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Bei Supabase anmelden
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      // Find user in mock data
-      const foundUser = MOCK_USERS.find(
-        (u) => u.email === email && u.role === role
-      );
-      
-      if (foundUser) {
-        setUser(foundUser);
-        localStorage.setItem("easydrop-user", JSON.stringify(foundUser));
-        toast({
-          title: "Login successful",
-          description: `Welcome back, ${foundUser.name}!`,
-        });
-        
-        // Navigate based on role
-        if (role === "business") {
-          navigate("/businesses");
-        } else {
-          navigate("/drivers");
-        }
-      } else {
-        // For demo purposes, create a new user if not found
-        const newUser: User = {
-          id: `${role}-${Date.now()}`,
-          email,
-          name: email.split("@")[0],
-          role,
-        };
-        
-        MOCK_USERS.push(newUser);
-        setUser(newUser);
-        localStorage.setItem("easydrop-user", JSON.stringify(newUser));
-        
-        toast({
-          title: "Login successful",
-          description: `Welcome, ${newUser.name}!`,
-        });
-        
-        // Navigate based on role
-        if (role === "business") {
-          navigate("/businesses");
-        } else {
-          navigate("/drivers");
-        }
+      if (error) {
+        throw error;
       }
-    } catch (error) {
+      
+      // Profil abrufen
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (profileError) {
+        throw profileError;
+      }
+      
+      // Rollenüberprüfung
+      if (profile.role !== role) {
+        await supabase.auth.signOut();
+        throw new Error(`Sie haben sich als ${role} angemeldet, aber Ihr Konto ist als ${profile.role} registriert.`);
+      }
+      
+      const userData: User = {
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        role: profile.role,
+      };
+      
+      setUser(userData);
+      
       toast({
-        title: "Login failed",
-        description: "Please check your credentials and try again.",
+        title: "Anmeldung erfolgreich",
+        description: `Willkommen zurück, ${profile.name}!`,
+      });
+      
+      // Je nach Rolle navigieren
+      if (role === "business") {
+        navigate("/businesses");
+      } else {
+        navigate("/drivers");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Anmeldung fehlgeschlagen",
+        description: error.message || "Bitte überprüfen Sie Ihre Anmeldedaten und versuchen Sie es erneut.",
         variant: "destructive",
       });
     } finally {
@@ -108,50 +160,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Bei Supabase registrieren
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            role,
+          },
+        },
+      });
       
-      // Check if user already exists
-      const userExists = MOCK_USERS.some(
-        (u) => u.email === email && u.role === role
-      );
-      
-      if (userExists) {
-        toast({
-          title: "Registration failed",
-          description: "User with this email already exists.",
-          variant: "destructive",
-        });
-        return;
+      if (error) {
+        throw error;
       }
       
-      // Create new user
-      const newUser: User = {
-        id: `${role}-${Date.now()}`,
+      if (!data.user) {
+        throw new Error("Benutzerregistrierung fehlgeschlagen");
+      }
+      
+      // Profil in der Datenbank erstellen
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email,
+          name,
+          role,
+          created_at: new Date().toISOString(),
+        });
+        
+      if (profileError) {
+        // Bereinigen bei Fehler
+        await supabase.auth.admin.deleteUser(data.user.id);
+        throw profileError;
+      }
+      
+      const userData: User = {
+        id: data.user.id,
         email,
         name,
         role,
       };
       
-      MOCK_USERS.push(newUser);
-      setUser(newUser);
-      localStorage.setItem("easydrop-user", JSON.stringify(newUser));
+      setUser(userData);
       
       toast({
-        title: "Registration successful",
-        description: `Welcome, ${name}!`,
+        title: "Registrierung erfolgreich",
+        description: `Willkommen, ${name}!`,
       });
       
-      // Navigate based on role
+      // Je nach Rolle navigieren
       if (role === "business") {
         navigate("/businesses");
       } else {
         navigate("/drivers");
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
-        title: "Registration failed",
-        description: "An error occurred during registration.",
+        title: "Registrierung fehlgeschlagen",
+        description: error.message || "Ein Fehler ist bei der Registrierung aufgetreten.",
         variant: "destructive",
       });
     } finally {
@@ -159,13 +228,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("easydrop-user");
     navigate("/");
     toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
+      title: "Abgemeldet",
+      description: "Sie wurden erfolgreich abgemeldet.",
     });
   };
 
