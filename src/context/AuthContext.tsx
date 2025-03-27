@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, UserRole } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
@@ -21,52 +21,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Überprüfen des Authentifizierungsstatus beim ersten Laden
+  // Check authentication status on first load
   useEffect(() => {
-    const checkSession = async () => {
-      setIsLoading(true);
-      
-      // Aktuelle Sitzung abrufen
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error("Fehler beim Abrufen der Sitzung:", error);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (session) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (profileError) {
-          console.error("Fehler beim Abrufen des Profils:", profileError);
-          setIsLoading(false);
-          return;
-        }
-        
-        if (profile) {
-          const userData: User = {
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role,
-          };
-          
-          setUser(userData);
-        }
-      }
-      
-      setIsLoading(false);
-    };
-    
-    // Einmaliges Überprüfen beim Laden
-    checkSession();
-    
-    // Auf Authentifizierungsänderungen hören
+    // First set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         const { data: profile } = await supabase
@@ -90,7 +47,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
     
-    // Aufräumen
+    // Then check for existing session
+    const checkSession = async () => {
+      setIsLoading(true);
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+          } else if (profile) {
+            const userData: User = {
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role,
+            };
+            
+            setUser(userData);
+          }
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkSession();
+    
+    // Clean up
     return () => {
       subscription.unsubscribe();
     };
@@ -99,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     try {
-      // Bei Supabase anmelden
+      // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -109,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      // Profil abrufen
+      // Fetch profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -120,10 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw profileError;
       }
       
-      // Rollenüberprüfung
+      // Role check
       if (profile.role !== role) {
         await supabase.auth.signOut();
-        throw new Error(`Sie haben sich als ${role} angemeldet, aber Ihr Konto ist als ${profile.role} registriert.`);
+        throw new Error(`You signed in as ${role}, but your account is registered as ${profile.role}.`);
       }
       
       const userData: User = {
@@ -136,11 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       
       toast({
-        title: "Anmeldung erfolgreich",
-        description: `Willkommen zurück, ${profile.name}!`,
+        title: "Login successful",
+        description: `Welcome back, ${profile.name}!`,
       });
       
-      // Je nach Rolle navigieren
+      // Navigate based on role
       if (role === "business") {
         navigate("/businesses");
       } else {
@@ -148,8 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       toast({
-        title: "Anmeldung fehlgeschlagen",
-        description: error.message || "Bitte überprüfen Sie Ihre Anmeldedaten und versuchen Sie es erneut.",
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
     } finally {
@@ -160,16 +153,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     try {
-      // Bei Supabase registrieren
+      // First create the auth user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            name,
-            role,
-          },
-        },
       });
       
       if (error) {
@@ -177,10 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (!data.user) {
-        throw new Error("Benutzerregistrierung fehlgeschlagen");
+        throw new Error("User registration failed");
       }
       
-      // Profil in der Datenbank erstellen
+      // Create profile in the database
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
@@ -192,8 +179,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
       if (profileError) {
-        // Bereinigen bei Fehler
-        await supabase.auth.admin.deleteUser(data.user.id);
+        console.error("Profile creation error:", profileError);
+        // Try to clean up the auth user if profile creation fails
         throw profileError;
       }
       
@@ -207,20 +194,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       
       toast({
-        title: "Registrierung erfolgreich",
-        description: `Willkommen, ${name}!`,
+        title: "Registration successful",
+        description: `Welcome, ${name}!`,
       });
       
-      // Je nach Rolle navigieren
+      // Navigate based on role
       if (role === "business") {
         navigate("/businesses");
       } else {
         navigate("/drivers");
       }
     } catch (error: any) {
+      console.error("Registration error:", error);
       toast({
-        title: "Registrierung fehlgeschlagen",
-        description: error.message || "Ein Fehler ist bei der Registrierung aufgetreten.",
+        title: "Registration failed",
+        description: error.message || "An error occurred during registration.",
         variant: "destructive",
       });
     } finally {
@@ -229,13 +217,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    navigate("/");
-    toast({
-      title: "Abgemeldet",
-      description: "Sie wurden erfolgreich abgemeldet.",
-    });
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      navigate("/");
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Logout failed",
+        description: error.message || "Failed to log out.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
