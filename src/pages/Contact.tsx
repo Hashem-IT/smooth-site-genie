@@ -1,4 +1,3 @@
-
 import React from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -10,16 +9,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "@/hooks/use-toast";
 import { Mail, Phone, MapPin } from "lucide-react";
-
 const contactSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   subject: z.string().min(5, "Subject must be at least 5 characters"),
-  message: z.string().min(10, "Message must be at least 10 characters"),
+  message: z.string().min(10, "Message must be at least 10 characters")
 });
-
 type ContactFormData = z.infer<typeof contactSchema>;
-
 const Contact = () => {
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -27,21 +23,18 @@ const Contact = () => {
       name: "",
       email: "",
       subject: "",
-      message: "",
-    },
+      message: ""
+    }
   });
-
   const onSubmit = (data: ContactFormData) => {
     console.log("Contact form submitted:", data);
     toast({
       title: "Message sent",
-      description: "Thank you for your message. We'll get back to you soon.",
+      description: "Thank you for your message. We'll get back to you soon."
     });
     form.reset();
   };
-
-  return (
-    <Layout>
+  return <Layout>
       <div className="container py-10">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-2">Contact Us</h1>
@@ -55,65 +48,45 @@ const Contact = () => {
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
+                      <FormField control={form.control} name="name" render={({
+                      field
+                    }) => <FormItem>
                             <FormLabel>Your Name</FormLabel>
                             <FormControl>
                               <Input placeholder="John Doe" {...field} />
                             </FormControl>
                             <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
+                          </FormItem>} />
+                      <FormField control={form.control} name="email" render={({
+                      field
+                    }) => <FormItem>
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
                               <Input placeholder="johndoe@example.com" type="email" {...field} />
                             </FormControl>
                             <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          </FormItem>} />
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="subject"
-                      render={({ field }) => (
-                        <FormItem>
+                    <FormField control={form.control} name="subject" render={({
+                    field
+                  }) => <FormItem>
                           <FormLabel>Subject</FormLabel>
                           <FormControl>
                             <Input placeholder="How can we help you?" {...field} />
                           </FormControl>
                           <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        </FormItem>} />
 
-                    <FormField
-                      control={form.control}
-                      name="message"
-                      render={({ field }) => (
-                        <FormItem>
+                    <FormField control={form.control} name="message" render={({
+                    field
+                  }) => <FormItem>
                           <FormLabel>Message</FormLabel>
                           <FormControl>
-                            <Textarea
-                              placeholder="Please describe your question or concern..."
-                              className="min-h-[150px]"
-                              {...field}
-                            />
+                            <Textarea placeholder="Please describe your question or concern..." className="min-h-[150px]" {...field} />
                           </FormControl>
                           <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        </FormItem>} />
 
                     <Button type="submit" className="w-full md:w-auto">
                       Send Message
@@ -129,20 +102,16 @@ const Contact = () => {
                 <ul className="space-y-4">
                   <li className="flex items-start gap-3">
                     <Mail className="w-5 h-5 text-primary mt-1" />
-                    <div>
+                    <div className="">
                       <p className="font-medium">Email</p>
-                      <a href="mailto:info@deliveryconnect.com" className="text-primary hover:underline">
-                        info@deliveryconnect.com
-                      </a>
+                      <a href="mailto:info@deliveryconnect.com" className="text-primary hover:underline">ED.EasyDrop@gmail.com</a>
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
                     <Phone className="w-5 h-5 text-primary mt-1" />
                     <div>
                       <p className="font-medium">Phone</p>
-                      <a href="tel:+4955512345678" className="hover:text-primary">
-                        +49 555 12345678
-                      </a>
+                      <a href="tel:+4955512345678" className="hover:text-primary">+49 00000000000</a>
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
@@ -180,8 +149,6 @@ const Contact = () => {
           </div>
         </div>
       </div>
-    </Layout>
-  );
+    </Layout>;
 };
-
 export default Contact;
