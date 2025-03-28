@@ -96,6 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     try {
+      console.log("Login attempt with:", { email, role });
+      
       // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -103,8 +105,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (error) {
+        console.error("Login error:", error);
         throw error;
       }
+      
+      console.log("Supabase auth success:", data);
       
       // Fetch profile using maybeSingle instead of single
       const { data: profile, error: profileError } = await supabase
@@ -114,8 +119,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
         
       if (profileError) {
+        console.error("Profile fetch error:", profileError);
         throw profileError;
       }
+      
+      console.log("Profile data:", profile);
       
       if (!profile) {
         await supabase.auth.signOut();
@@ -149,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         navigate("/drivers");
       }
     } catch (error: any) {
+      console.error("Login error:", error);
       toast({
         title: "Anmeldung fehlgeschlagen",
         description: error.message || "Bitte überprüfen Sie Ihre Anmeldedaten und versuchen Sie es erneut.",
@@ -162,6 +171,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     try {
+      console.log("Register attempt with:", { name, email, role });
+      
       // First create the auth user
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -175,8 +186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (error) {
+        console.error("Registration error:", error);
         throw error;
       }
+      
+      console.log("Supabase signup response:", data);
       
       if (!data.user) {
         throw new Error("Registrierung fehlgeschlagen");
@@ -195,6 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       if (profileError || !profile) {
         console.error("Profile creation error:", profileError || "No profile found");
+        console.log("Profile data:", profile);
         // Try to clean up the auth user if profile creation fails
         throw new Error("Fehler bei der Profilerstellung. Bitte versuchen Sie es erneut.");
       }

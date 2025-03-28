@@ -26,10 +26,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isRegister) {
-      await register(name, email, password, selectedRole);
-    } else {
-      await login(email, password, selectedRole);
+    try {
+      if (isRegister) {
+        await register(name, email, password, selectedRole);
+      } else {
+        await login(email, password, selectedRole);
+      }
+    } catch (error) {
+      console.error("Authentication error:", error);
     }
   };
   
