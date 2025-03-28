@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { UserRole } from "@/types";
 import PasswordInput from "./PasswordInput";
 import PasswordStrengthChecker from "./PasswordStrengthChecker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface AuthFormProps {
   role: UserRole;
@@ -22,18 +24,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
+  const [error, setError] = useState<string | null>(null);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     try {
+      console.log("Form submitted:", { isRegister, email, password, selectedRole });
       if (isRegister) {
         await register(name, email, password, selectedRole);
       } else {
         await login(email, password, selectedRole);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Authentication error:", error);
+      setError(error.message || "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
     }
   };
   
@@ -48,6 +54,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           {isRegister && (
             <div className="space-y-2">

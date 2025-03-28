@@ -23,29 +23,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check authentication status on first load
   useEffect(() => {
+    console.log("Setting up auth state listener");
+    
     // First set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.id);
+      
       if (event === 'SIGNED_IN' && session) {
-        // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
-          
-        if (profile) {
-          const userData: User = {
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role as UserRole,
-          };
-          
-          setUser(userData);
-        } else if (profileError) {
-          console.error("Error fetching profile:", profileError);
+        try {
+          console.log("User signed in, fetching profile");
+          // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+            
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+            return;
+          }
+            
+          if (profile) {
+            console.log("Profile found:", profile);
+            const userData: User = {
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role as UserRole,
+            };
+            
+            setUser(userData);
+          } else {
+            console.log("No profile found for user:", session.user.id);
+          }
+        } catch (error) {
+          console.error("Error in auth state change handler:", error);
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log("User signed out");
         setUser(null);
       }
     });
@@ -55,9 +71,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       
       try {
+        console.log("Checking for existing session");
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
+          console.log("Found existing session:", session.user.id);
+          
           // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -68,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profileError) {
             console.error("Error fetching profile:", profileError);
           } else if (profile) {
+            console.log("Profile found for existing session:", profile);
             const userData: User = {
               id: profile.id,
               email: profile.email,
@@ -76,7 +96,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             
             setUser(userData);
+          } else {
+            console.log("No profile found for session user:", session.user.id);
           }
+        } else {
+          console.log("No existing session found");
         }
       } catch (error) {
         console.error("Session check error:", error);
@@ -89,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Clean up
     return () => {
+      console.log("Cleaning up auth listener");
       subscription.unsubscribe();
     };
   }, []);
