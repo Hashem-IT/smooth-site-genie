@@ -26,11 +26,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // First set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        const { data: profile } = await supabase
+        // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
           
         if (profile) {
           const userData: User = {
@@ -41,6 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           
           setUser(userData);
+        } else if (profileError) {
+          console.error("Error fetching profile:", profileError);
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -55,11 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
+          // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
             
           if (profileError) {
             console.error("Error fetching profile:", profileError);
@@ -102,21 +106,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      // Fetch profile
+      // Fetch profile using maybeSingle instead of single
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
         
       if (profileError) {
         throw profileError;
       }
       
+      if (!profile) {
+        await supabase.auth.signOut();
+        throw new Error("Profil nicht gefunden. Bitte registrieren Sie sich zuerst.");
+      }
+      
       // Role check
       if (profile.role !== role) {
         await supabase.auth.signOut();
-        throw new Error(`You signed in as ${role}, but your account is registered as ${profile.role}.`);
+        throw new Error(`Sie haben sich als ${role === 'business' ? 'Unternehmen' : 'Fahrer'} angemeldet, aber Ihr Konto ist als ${profile.role === 'business' ? 'Unternehmen' : 'Fahrer'} registriert.`);
       }
       
       const userData: User = {
@@ -129,8 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       
       toast({
-        title: "Login successful",
-        description: `Welcome back, ${profile.name}!`,
+        title: "Anmeldung erfolgreich",
+        description: `Willkommen zurück, ${profile.name}!`,
       });
       
       // Navigate based on role
@@ -141,8 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        title: "Anmeldung fehlgeschlagen",
+        description: error.message || "Bitte überprüfen Sie Ihre Anmeldedaten und versuchen Sie es erneut.",
         variant: "destructive",
       });
     } finally {
@@ -157,6 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name,
+            role,
+          }
+        }
       });
       
       if (error) {
@@ -164,24 +179,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (!data.user) {
-        throw new Error("User registration failed");
+        throw new Error("Registrierung fehlgeschlagen");
       }
       
-      // Create profile in the database
-      const { error: profileError } = await supabase
+      // The profile is created automatically through the database trigger
+      // Wait briefly to ensure the trigger has time to execute
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Fetch the newly created profile using maybeSingle
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          name,
-          role,
-          created_at: new Date().toISOString(),
-        });
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle();
         
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
+      if (profileError || !profile) {
+        console.error("Profile creation error:", profileError || "No profile found");
         // Try to clean up the auth user if profile creation fails
-        throw profileError;
+        throw new Error("Fehler bei der Profilerstellung. Bitte versuchen Sie es erneut.");
       }
       
       const userData: User = {
@@ -194,8 +209,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       
       toast({
-        title: "Registration successful",
-        description: `Welcome, ${name}!`,
+        title: "Registrierung erfolgreich",
+        description: `Willkommen, ${name}!`,
       });
       
       // Navigate based on role
@@ -207,8 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({
-        title: "Registration failed",
-        description: error.message || "An error occurred during registration.",
+        title: "Registrierung fehlgeschlagen",
+        description: error.message || "Bei der Registrierung ist ein Fehler aufgetreten.",
         variant: "destructive",
       });
     } finally {
@@ -222,14 +237,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       navigate("/");
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
+        title: "Abgemeldet",
+        description: "Sie wurden erfolgreich abgemeldet.",
       });
     } catch (error: any) {
       console.error("Logout error:", error);
       toast({
-        title: "Logout failed",
-        description: error.message || "Failed to log out.",
+        title: "Abmeldung fehlgeschlagen",
+        description: error.message || "Abmeldung fehlgeschlagen.",
         variant: "destructive",
       });
     }

@@ -9,7 +9,150 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          sender_id: string
+          sender_name: string
+          sender_role: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          sender_id: string
+          sender_name: string
+          sender_role: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          sender_id?: string
+          sender_name?: string
+          sender_role?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          business_id: string
+          business_name: string
+          created_at: string
+          description: string
+          driver_id: string | null
+          driver_name: string | null
+          from_address: string | null
+          id: string
+          image_url: string | null
+          location_lat: number | null
+          location_lng: number | null
+          name: string
+          price: number
+          size: string
+          status: string
+          to_address: string | null
+          weight: number
+        }
+        Insert: {
+          business_id: string
+          business_name: string
+          created_at?: string
+          description: string
+          driver_id?: string | null
+          driver_name?: string | null
+          from_address?: string | null
+          id?: string
+          image_url?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          name: string
+          price: number
+          size: string
+          status?: string
+          to_address?: string | null
+          weight: number
+        }
+        Update: {
+          business_id?: string
+          business_name?: string
+          created_at?: string
+          description?: string
+          driver_id?: string | null
+          driver_name?: string | null
+          from_address?: string | null
+          id?: string
+          image_url?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          name?: string
+          price?: number
+          size?: string
+          status?: string
+          to_address?: string | null
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

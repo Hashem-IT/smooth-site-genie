@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { UserRole } from "@/types";
 import PasswordInput from "./PasswordInput";
+import PasswordStrengthChecker from "./PasswordStrengthChecker";
 
 interface AuthFormProps {
   role: UserRole;
@@ -77,6 +78,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
             />
+            {isRegister && <PasswordStrengthChecker password={password} />}
           </div>
           
           <div className="space-y-2">
