@@ -1,15 +1,16 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon, Bell } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
+import { getFromStorage } from "@/utils/storage";
 
 const BusinessOrderList: React.FC = () => {
   const {
@@ -22,26 +23,50 @@ const BusinessOrderList: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
-  // Only show orders that belong to the current business user
+  // Nur Bestellungen anzeigen, die dem aktuellen Business-Benutzer gehören
   const businessOrders = userOrders.filter(order => order.businessId === user?.id);
+  
+  // Sortieren, damit gebuchte Bestellungen, die Bestätigung benötigen, zuerst erscheinen
+  const sortedBusinessOrders = [...businessOrders].sort((a, b) => {
+    if (a.status === "booked" && b.status !== "booked") return -1;
+    if (a.status !== "booked" && b.status === "booked") return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  
+  // Benachrichtigungen laden
+  useEffect(() => {
+    if (user && user.role === "business") {
+      const businessNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
+      setNotifications(businessNotifications[user.id] || []);
+    }
+  }, [user]);
+  
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-500",
     booked: "bg-blue-500",
     confirmed: "bg-green-500",
     delivered: "bg-purple-500"
   };
+  
   const handleConfirmOrder = (orderId: string) => {
     confirmOrder(orderId);
   };
+  
   const openChat = (order: Order) => {
     setSelectedOrder(order);
     setIsChatOpen(true);
   };
+  
   const openMap = (order: Order) => {
     setSelectedOrder(order);
     setIsMapOpen(true);
   };
+  
+  // Anzahl der Bestellungen, die Bestätigung benötigen
+  const pendingConfirmations = businessOrders.filter(order => order.status === "booked").length;
+  
   if (businessOrders.length === 0) {
     return <div className="text-center p-8">
         <Package className="h-12 w-12 mx-auto text-gray-400" />
@@ -49,8 +74,24 @@ const BusinessOrderList: React.FC = () => {
         <p className="mt-2 text-gray-500">Create your first order to get started.</p>
       </div>;
   }
+  
   return <div className="space-y-4">
-      {businessOrders.map(order => <Card key={order.id} className="overflow-hidden">
+      {pendingConfirmations > 0 && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-md flex items-center mb-4">
+          <Bell className="h-5 w-5 text-amber-500 mr-2" />
+          <div>
+            <p className="font-medium text-amber-800">
+              You have {pendingConfirmations} {pendingConfirmations === 1 ? 'order' : 'orders'} that need your confirmation!
+            </p>
+            <p className="text-sm text-amber-600">
+              Drivers are waiting for your approval to proceed with delivery.
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {sortedBusinessOrders.map(order => (
+        <Card key={order.id} className={`overflow-hidden ${order.status === "booked" ? "border-blue-400 shadow-md" : ""}`}>
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
               <div>
@@ -101,34 +142,54 @@ const BusinessOrderList: React.FC = () => {
               )}
             </div>
             
-            {order.driverName && <div className="mt-2 p-2 bg-muted rounded-md">
+            {order.driverName && (
+              <div className={`mt-2 p-2 ${order.status === "booked" ? "bg-blue-50 border border-blue-200" : "bg-muted"} rounded-md`}>
                 <span className="text-sm font-medium">Driver: {order.driverName}</span>
-              </div>}
+                
+                {order.status === "booked" && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    This driver is waiting for your confirmation.
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-wrap gap-2">
-            {order.status === "booked" && <Button onClick={() => handleConfirmOrder(order.id)} size="sm" className="flex items-center gap-1">
+            {order.status === "booked" && (
+              <Button 
+                onClick={() => handleConfirmOrder(order.id)} 
+                size="sm" 
+                className="flex items-center gap-1 bg-green-500 hover:bg-green-600"
+              >
                 <CheckCircle className="h-4 w-4" />
-                Confirm
-              </Button>}
+                Confirm Order
+              </Button>
+            )}
             
-            {order.status !== "pending" && <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
+            {order.status !== "pending" && (
+              <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
                 <MessageSquare className="h-4 w-4" />
-                Chat
-              </Button>}
+                Chat with Driver
+              </Button>
+            )}
             
-            {order.status === "confirmed" && order.location && <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openMap(order)}>
+            {order.status === "confirmed" && order.location && (
+              <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openMap(order)}>
                 <MapPin className="h-4 w-4" />
                 Track
-              </Button>}
+              </Button>
+            )}
             
             <div className="ml-auto flex items-center text-muted-foreground text-xs">
               <Clock className="h-3 w-3 mr-1" />
               {new Date(order.createdAt).toLocaleDateString()}
             </div>
           </CardFooter>
-        </Card>)}
+        </Card>
+      ))}
       
-      {selectedOrder && <>
+      {selectedOrder && (
+        <>
           <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
             <DialogContent>
               <DialogHeader>
@@ -160,7 +221,9 @@ const BusinessOrderList: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
-        </>}
+        </>
+      )}
     </div>;
 };
+
 export default BusinessOrderList;

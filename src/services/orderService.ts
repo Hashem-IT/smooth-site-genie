@@ -1,4 +1,3 @@
-
 import { Order } from "@/types";
 import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
@@ -76,6 +75,28 @@ export const bookOrderItem = (
       title: "Order booked",
       description: "You have successfully booked this order. Wait for confirmation.",
     });
+    
+    const bookedOrder = updatedOrders.find(order => order.id === orderId);
+    if (bookedOrder) {
+      const businessNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
+      
+      const notification = {
+        id: `notification-${Date.now()}`,
+        type: "order-booked",
+        orderId: orderId,
+        orderName: bookedOrder.name,
+        driverName: user.name,
+        timestamp: new Date(),
+        read: false
+      };
+      
+      if (!businessNotifications[bookedOrder.businessId]) {
+        businessNotifications[bookedOrder.businessId] = [];
+      }
+      
+      businessNotifications[bookedOrder.businessId].push(notification);
+      saveToStorage("business-notifications", businessNotifications);
+    }
   }
 
   return updatedOrders;
@@ -110,6 +131,14 @@ export const confirmOrderItem = (
       title: "Order confirmed",
       description: "You have confirmed this order. The driver can now proceed with delivery.",
     });
+    
+    const businessNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
+    if (businessNotifications[user.id]) {
+      businessNotifications[user.id] = businessNotifications[user.id].filter(
+        notification => !(notification.type === "order-booked" && notification.orderId === orderId)
+      );
+      saveToStorage("business-notifications", businessNotifications);
+    }
   }
 
   return updatedOrders;
