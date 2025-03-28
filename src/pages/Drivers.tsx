@@ -25,7 +25,7 @@ const Drivers = () => {
               <Button 
                 variant="outline" 
                 onClick={logout}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-2 hover:bg-accent/80"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>

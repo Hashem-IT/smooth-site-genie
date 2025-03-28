@@ -99,7 +99,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
             </RadioGroup>
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full h-11 mt-6 text-base font-medium shadow-sm hover:shadow-md"
+            variant="default"
+            size="lg"
+            disabled={isLoading}
+          >
             {isLoading
               ? "Loading..."
               : isRegister
@@ -113,6 +119,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           variant="link"
           onClick={() => setIsRegister(!isRegister)}
           disabled={isLoading}
+          className="text-primary font-medium"
         >
           {isRegister
             ? "Already have an account? Log in"
