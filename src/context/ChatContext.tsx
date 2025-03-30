@@ -3,13 +3,12 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabase";
-import { toast } from "@/hooks/use-toast";
 
 interface ChatContextType {
   messages: Message[];
   sendMessage: (orderId: string, text: string) => Promise<void>;
   loadMessages: (orderId: string) => Promise<void>;
-  orderMessages: (orderId: string) => Message[];
+  orderMessages: (orderId: string) => Message[]; // Add this function to the context type
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -18,12 +17,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messages, setMessages] = useState<Message[]>([]);
   const { user } = useAuth();
 
-  // Function to filter messages by order ID
+  // Add this function to filter messages by order ID
   const orderMessages = (orderId: string): Message[] => {
     return messages.filter(message => message.orderId === orderId);
   };
 
-  // Load messages for a specific order
+  // Nachrichten für eine bestimmte Bestellung laden
   const loadMessages = async (orderId: string) => {
     if (!user) return;
 
@@ -49,27 +48,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date(item.created_at),
         }));
 
-        setMessages(prev => {
-          // Filter out existing messages for this order
-          const filteredMessages = prev.filter(msg => msg.orderId !== orderId);
-          // Add new messages
-          return [...filteredMessages, ...formattedMessages];
-        });
+        setMessages(formattedMessages);
       }
     } catch (error: any) {
-      console.error("Error loading messages:", error.message);
-      toast({
-        title: "Error",
-        description: "Could not load chat messages.",
-        variant: "destructive",
-      });
+      console.error("Fehler beim Laden der Nachrichten:", error.message);
     }
   };
 
-  // Set up real-time message updates
   useEffect(() => {
     if (user) {
-      // Subscribe to new messages
+      // Echtzeit-Abonnement für neue Nachrichten
       const messagesSubscription = supabase
         .channel('messages_channel')
         .on('postgres_changes', { 
@@ -77,9 +65,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           schema: 'public', 
           table: 'messages'
         }, (payload: any) => {
+          // Nachricht zum lokalen Zustand hinzufügen
           const newMessage = payload.new;
-          
-          // Add the new message to state
           setMessages(prev => [...prev, {
             id: newMessage.id,
             orderId: newMessage.order_id,
@@ -89,14 +76,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             text: newMessage.text,
             createdAt: new Date(newMessage.created_at),
           }]);
-          
-          // If the message is not from the current user, show a toast notification
-          if (newMessage.sender_id !== user.id) {
-            toast({
-              title: "New message",
-              description: `New message from ${newMessage.sender_name}`,
-            });
-          }
         })
         .subscribe();
         
@@ -106,7 +85,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Send a new message
+  // Neue Nachricht senden
   const sendMessage = async (orderId: string, text: string) => {
     if (!user || !text.trim()) return;
 
@@ -127,15 +106,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         throw error;
       }
-      
-      // No need to update local state as it will be done by the subscription
     } catch (error: any) {
-      console.error("Error sending message:", error.message);
-      toast({
-        title: "Error",
-        description: "Could not send message.",
-        variant: "destructive",
-      });
+      console.error("Fehler beim Senden der Nachricht:", error.message);
     }
   };
 
@@ -145,7 +117,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         messages,
         sendMessage,
         loadMessages,
-        orderMessages,
+        orderMessages, // Add orderMessages to context value
       }}
     >
       {children}

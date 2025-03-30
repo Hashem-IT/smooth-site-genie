@@ -10,14 +10,12 @@ import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon, Bell } 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
-import { getFromStorage, saveToStorage } from "@/utils/storage";
-import { toast } from "@/hooks/use-toast";
+import { getFromStorage } from "@/utils/storage";
 
 const BusinessOrderList: React.FC = () => {
   const {
     userOrders,
-    confirmOrder,
-    loadOrders
+    confirmOrder
   } = useOrders();
   const {
     user
@@ -34,8 +32,7 @@ const BusinessOrderList: React.FC = () => {
   const sortedBusinessOrders = [...businessOrders].sort((a, b) => {
     if (a.status === "booked" && b.status !== "booked") return -1;
     if (a.status !== "booked" && b.status === "booked") return 1;
-    return new Date(b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt)).getTime() - 
-           new Date(a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt)).getTime();
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
   
   // Benachrichtigungen laden
@@ -43,34 +40,8 @@ const BusinessOrderList: React.FC = () => {
     if (user && user.role === "business") {
       const businessNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
       setNotifications(businessNotifications[user.id] || []);
-      
-      // Set up interval to check for new notifications
-      const interval = setInterval(() => {
-        const freshNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
-        if (freshNotifications[user.id]?.length !== notifications.length) {
-          setNotifications(freshNotifications[user.id] || []);
-          // Show toast for new notifications
-          if ((freshNotifications[user.id] || []).length > notifications.length) {
-            toast({
-              title: "New notification",
-              description: "You have new order bookings that need confirmation",
-            });
-          }
-        }
-      }, 5000); // Check every 5 seconds
-      
-      return () => clearInterval(interval);
     }
-  }, [user, notifications.length]);
-
-  // Refresh the orders periodically to check for new bookings
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadOrders();
-    }, 10000); // Refresh every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, [loadOrders]);
+  }, [user]);
   
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-500",
@@ -195,7 +166,7 @@ const BusinessOrderList: React.FC = () => {
               </Button>
             )}
             
-            {order.status !== "pending" && order.driverId && (
+            {order.status !== "pending" && (
               <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
                 <MessageSquare className="h-4 w-4" />
                 Chat with Driver
@@ -211,7 +182,7 @@ const BusinessOrderList: React.FC = () => {
             
             <div className="ml-auto flex items-center text-muted-foreground text-xs">
               <Clock className="h-3 w-3 mr-1" />
-              {new Date(order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt)).toLocaleDateString()}
+              {new Date(order.createdAt).toLocaleDateString()}
             </div>
           </CardFooter>
         </Card>

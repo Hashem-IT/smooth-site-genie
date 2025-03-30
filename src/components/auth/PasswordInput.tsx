@@ -9,7 +9,6 @@ interface PasswordInputProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
-  disabled?: boolean;
 }
 
 const PasswordInput: React.FC<PasswordInputProps> = ({
@@ -17,7 +16,6 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
   onChange,
   placeholder = "Password",
   className = "",
-  disabled = false,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -33,7 +31,6 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
         onChange={onChange}
         placeholder={placeholder}
         className={`pr-10 ${className}`}
-        disabled={disabled}
       />
       <Button
         type="button"
@@ -41,7 +38,6 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
         size="sm"
         className="absolute right-0 top-0 h-full px-3"
         onClick={togglePasswordVisibility}
-        disabled={disabled}
       >
         {showPassword ? (
           <EyeOff className="h-4 w-4 text-muted-foreground" />

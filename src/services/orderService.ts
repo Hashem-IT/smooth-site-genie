@@ -1,4 +1,3 @@
-
 import { Order } from "@/types";
 import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
@@ -34,7 +33,6 @@ export const createNewOrder = (
     businessName: user.name,
     status: "pending",
     createdAt: new Date(),
-    driverId: null,
     ...orderData,
   };
 

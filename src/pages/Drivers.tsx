@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import AuthForm from "@/components/auth/AuthForm";
@@ -8,22 +8,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Drivers = () => {
-  const { user, isAuthenticated, logout, isLoading } = useAuth();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      setIsLoggingOut(true);
-      await logout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
-  const logoutButtonDisabled = isLoading || isLoggingOut;
-  const logoutButtonText = isLoggingOut ? "Loading..." : "Logout";
+  const { user, isAuthenticated, logout } = useAuth();
 
   return (
     <Layout>
@@ -39,18 +24,11 @@ const Drivers = () => {
               </div>
               <Button 
                 variant="outline" 
-                onClick={handleLogout}
-                className="flex items-center gap-2"
-                disabled={logoutButtonDisabled}
+                onClick={logout}
+                className="flex items-center gap-2 border-2 hover:bg-accent/80"
               >
-                {isLoggingOut ? (
-                  logoutButtonText
-                ) : (
-                  <>
-                    <LogOut className="h-4 w-4" />
-                    <span>{logoutButtonText}</span>
-                  </>
-                )}
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
               </Button>
             </div>
             
