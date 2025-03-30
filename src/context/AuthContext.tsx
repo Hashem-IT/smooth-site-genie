@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
           if (profileError) {
             console.error("Error fetching profile:", profileError);
+            setIsLoading(false); // Make sure to set loading to false on error
             return;
           }
             
@@ -57,12 +58,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             console.log("No profile found for user:", session.user.id);
           }
+          
+          setIsLoading(false); // Set loading to false after successful sign-in
         } catch (error) {
           console.error("Error in auth state change handler:", error);
+          setIsLoading(false); // Make sure to set loading to false on error
         }
       } else if (event === 'SIGNED_OUT') {
         console.log("User signed out");
         setUser(null);
+        setIsLoading(false); // Set loading to false after sign-out
       }
     });
     
@@ -131,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error("Login error:", error);
+        setIsLoading(false); // Make sure to set loading to false on error
         throw error;
       }
       
@@ -145,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       if (profileError) {
         console.error("Profile fetch error:", profileError);
+        setIsLoading(false); // Make sure to set loading to false on error
         throw profileError;
       }
       
@@ -152,12 +159,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (!profile) {
         await supabase.auth.signOut();
+        setIsLoading(false); // Make sure to set loading to false when there's no profile
         throw new Error("Profil nicht gefunden. Bitte registrieren Sie sich zuerst.");
       }
       
       // Role check
       if (profile.role !== role) {
         await supabase.auth.signOut();
+        setIsLoading(false); // Make sure to set loading to false when role doesn't match
         throw new Error(`Sie haben sich als ${role === 'business' ? 'Unternehmen' : 'Fahrer'} angemeldet, aber Ihr Konto ist als ${profile.role === 'business' ? 'Unternehmen' : 'Fahrer'} registriert.`);
       }
       
@@ -188,8 +197,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "Bitte überprüfen Sie Ihre Anmeldedaten und versuchen Sie es erneut.",
         variant: "destructive",
       });
+      throw error; // Re-throw the error so it can be caught by the form component
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Always ensure loading state is reset
     }
   };
 
@@ -212,12 +222,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error("Registration error:", error);
+        setIsLoading(false); // Make sure to set loading to false on error
         throw error;
       }
       
       console.log("Supabase signup response:", data);
       
       if (!data.user) {
+        setIsLoading(false); // Make sure to set loading to false when there's no user
         throw new Error("Registrierung fehlgeschlagen");
       }
       
@@ -235,6 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileError || !profile) {
         console.error("Profile creation error:", profileError || "No profile found");
         console.log("Profile data:", profile);
+        setIsLoading(false); // Make sure to set loading to false on error
         // Try to clean up the auth user if profile creation fails
         throw new Error("Fehler bei der Profilerstellung. Bitte versuchen Sie es erneut.");
       }
@@ -266,12 +279,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "Bei der Registrierung ist ein Fehler aufgetreten.",
         variant: "destructive",
       });
+      throw error; // Re-throw the error so it can be caught by the form component
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Always ensure loading state is reset
     }
   };
 
   const logout = async () => {
+    setIsLoading(true);
     try {
       await supabase.auth.signOut();
       setUser(null);
@@ -287,6 +302,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "Abmeldung fehlgeschlagen.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false); // Always ensure loading state is reset
     }
   };
 

@@ -5,11 +5,29 @@ import { useAuth } from "@/context/AuthContext";
 import AuthForm from "@/components/auth/AuthForm";
 import OrderForm from "@/components/business/OrderForm";
 import BusinessOrderList from "@/components/business/BusinessOrderList";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Businesses = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+
+  // Show a loading state while authentication is being checked
+  if (isLoading && !isAuthenticated) {
+    return (
+      <Layout>
+        <div className="container py-10">
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-8">
+              <Skeleton className="h-10 w-64 mx-auto mb-4" />
+              <Skeleton className="h-6 w-96 mx-auto" />
+            </div>
+            <Skeleton className="h-[400px] w-full rounded-lg" />
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
