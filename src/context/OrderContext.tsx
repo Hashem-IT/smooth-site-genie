@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Order } from "@/types";
+import { Order, OrderStatus } from "@/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -57,7 +57,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           weight: item.weight,
           size: item.size,
           imageUrl: item.image_url,
-          status: item.status,
+          status: item.status as OrderStatus,
           driverId: item.driver_id,
           driverName: item.driver_name,
           createdAt: new Date(item.created_at),

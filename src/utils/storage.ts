@@ -74,7 +74,9 @@ export const convertAppOrderToDbOrder = (appOrder: Order): any => {
     status: appOrder.status,
     driver_id: appOrder.driverId,
     driver_name: appOrder.driverName,
-    created_at: appOrder.createdAt.toISOString(),
+    created_at: typeof appOrder.createdAt === 'string' 
+      ? appOrder.createdAt 
+      : appOrder.createdAt.toISOString(),
     from_address: appOrder.fromAddress,
     to_address: appOrder.toAddress,
     location_lat: appOrder.location?.lat,
