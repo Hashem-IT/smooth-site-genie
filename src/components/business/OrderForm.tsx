@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -8,10 +7,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Upload, Eye, EyeOff } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useOrders } from "@/context/OrderContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Order } from "@/types";
 
 const orderSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -48,7 +46,6 @@ const OrderForm = () => {
     const file = event.target.files?.[0];
     if (file) {
       setImageFile(file);
-      // Create URL for preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedImage(reader.result as string);
@@ -58,7 +55,6 @@ const OrderForm = () => {
   };
 
   const onSubmit = (data: OrderFormValues) => {
-    // Create a base64 representation of the image for storage
     if (imageFile) {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -107,9 +103,9 @@ const OrderForm = () => {
       if (!value) resetForm();
     }}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
-          <span>New Order</span>
+          New Order
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">

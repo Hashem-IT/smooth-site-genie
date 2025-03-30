@@ -35,12 +35,7 @@ const Businesses = () => {
             
             <div className="flex justify-between items-center py-4">
               <h2 className="text-xl font-semibold">Your Orders</h2>
-              <OrderForm>
-                <Button className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Order
-                </Button>
-              </OrderForm>
+              <OrderForm />
             </div>
             
             <BusinessOrderList />
