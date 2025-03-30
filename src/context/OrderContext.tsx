@@ -57,7 +57,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           weight: item.weight,
           size: item.size,
           imageUrl: item.image_url,
-          status: item.status,
+          status: item.status as OrderStatus, // Cast to OrderStatus type
           driverId: item.driver_id,
           driverName: item.driver_name,
           createdAt: new Date(item.created_at),
@@ -122,7 +122,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const filteredOrders = (status: string) => {
     return status === 'all'
       ? orders
-      : orders.filter(order => order.status === status);
+      : orders.filter(order => order.status === status as OrderStatus);
   };
 
   // Neue Bestellung erstellen
@@ -241,7 +241,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { error } = await supabase
         .from('orders')
         .update({
-          status: 'booked',
+          status: 'booked' as OrderStatus,
           driver_id: user.id,
           driver_name: user.name,
         })
@@ -283,7 +283,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { error } = await supabase
         .from('orders')
         .update({
-          status: 'confirmed',
+          status: 'confirmed' as OrderStatus,
         })
         .eq('id', orderId)
         .eq('business_id', user.id)
@@ -351,7 +351,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       let query = supabase
         .from('orders')
         .update({
-          status: 'delivered',
+          status: 'delivered' as OrderStatus,
         })
         .eq('id', orderId);
         
