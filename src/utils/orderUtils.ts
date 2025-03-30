@@ -35,6 +35,9 @@ export const MOCK_ORDERS: Order[] = [
     size: "Medium",
     imageUrl: "/placeholder.svg",
     status: "pending",
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
+    driverId: null,
+    pickupAddress: "123 Pickup St",
+    dropoffAddress: "456 Dropoff Ave",
   },
 ];

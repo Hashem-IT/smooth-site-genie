@@ -50,7 +50,7 @@ export const convertDbOrderToAppOrder = (dbOrder: any): Order => {
     status: dbOrder.status,
     driverId: dbOrder.driver_id,
     driverName: dbOrder.driver_name,
-    createdAt: new Date(dbOrder.created_at),
+    createdAt: dbOrder.created_at,
     fromAddress: dbOrder.from_address,
     toAddress: dbOrder.to_address,
     location: dbOrder.location_lat && dbOrder.location_lng
@@ -61,6 +61,11 @@ export const convertDbOrderToAppOrder = (dbOrder: any): Order => {
 
 // Hilfsfunktion zum Konvertieren von App-Order zu Supabase-Order
 export const convertAppOrderToDbOrder = (appOrder: Order): any => {
+  // Make sure to handle both Date and string types for createdAt
+  const createdAtString = appOrder.createdAt instanceof Date ? 
+    appOrder.createdAt.toISOString() : 
+    appOrder.createdAt;
+    
   return {
     id: appOrder.id,
     business_id: appOrder.businessId,
@@ -74,7 +79,7 @@ export const convertAppOrderToDbOrder = (appOrder: Order): any => {
     status: appOrder.status,
     driver_id: appOrder.driverId,
     driver_name: appOrder.driverName,
-    created_at: appOrder.createdAt.toISOString(),
+    created_at: createdAtString,
     from_address: appOrder.fromAddress,
     to_address: appOrder.toAddress,
     location_lat: appOrder.location?.lat,

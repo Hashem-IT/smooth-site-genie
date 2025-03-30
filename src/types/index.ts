@@ -1,3 +1,4 @@
+
 export type UserRole = "business" | "driver";
 
 export interface User {
@@ -10,13 +11,38 @@ export interface User {
 export interface Order {
   id: string;
   businessId: string;
+  businessName?: string;
   driverId: string | null;
-  pickupAddress: string;
-  dropoffAddress: string;
+  driverName?: string | null;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  fromAddress?: string;
+  toAddress?: string;
   status: OrderStatus;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | Date;
+  updatedAt?: string;
+  
+  // Additional fields being used in the app
+  name?: string;
+  description?: string;
+  price?: number;
+  weight?: number;
+  size?: string;
+  imageUrl?: string;
+  location?: {
+    lat: number;
+    lng: number;
+  };
 }
 
-// Update the OrderStatus type to match what's expected
 export type OrderStatus = "pending" | "booked" | "confirmed" | "delivered";
+
+export interface Message {
+  id: string;
+  orderId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  text: string;
+  createdAt: Date;
+}
