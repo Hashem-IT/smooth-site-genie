@@ -11,11 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
 import { getFromStorage } from "@/utils/storage";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const BusinessOrderList: React.FC = () => {
   const {
+    orders,
     userOrders,
-    confirmOrder
+    confirmOrder,
+    loadOrders
   } = useOrders();
   const {
     user
@@ -24,12 +27,24 @@ const BusinessOrderList: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("all");
 
+  // Refresh orders when component mounts
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+  
   // Nur Bestellungen anzeigen, die dem aktuellen Business-Benutzer gehören
   const businessOrders = userOrders.filter(order => order.businessId === user?.id);
   
+  // Filter orders by status
+  const getFilteredOrders = (status: string) => {
+    if (status === "all") return businessOrders;
+    return businessOrders.filter(order => order.status === status);
+  };
+  
   // Sortieren, damit gebuchte Bestellungen, die Bestätigung benötigen, zuerst erscheinen
-  const sortedBusinessOrders = [...businessOrders].sort((a, b) => {
+  const sortedBusinessOrders = [...getFilteredOrders(activeTab)].sort((a, b) => {
     if (a.status === "booked" && b.status !== "booked") return -1;
     if (a.status !== "booked" && b.status === "booked") return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -90,6 +105,40 @@ const BusinessOrderList: React.FC = () => {
         </div>
       )}
       
+      {/* Add tabs for filtering */}
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-4 mb-4">
+          <TabsTrigger value="all" className="text-center">
+            All
+            {businessOrders.length > 0 && <span className="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{businessOrders.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="text-center">
+            Pending
+            {businessOrders.filter(o => o.status === "pending").length > 0 && 
+              <span className="ml-1 text-xs bg-yellow-200 text-yellow-700 rounded-full px-2">
+                {businessOrders.filter(o => o.status === "pending").length}
+              </span>
+            }
+          </TabsTrigger>
+          <TabsTrigger value="booked" className="text-center">
+            Booked
+            {businessOrders.filter(o => o.status === "booked").length > 0 && 
+              <span className="ml-1 text-xs bg-blue-200 text-blue-700 rounded-full px-2">
+                {businessOrders.filter(o => o.status === "booked").length}
+              </span>
+            }
+          </TabsTrigger>
+          <TabsTrigger value="confirmed" className="text-center">
+            Confirmed
+            {businessOrders.filter(o => o.status === "confirmed").length > 0 && 
+              <span className="ml-1 text-xs bg-green-200 text-green-700 rounded-full px-2">
+                {businessOrders.filter(o => o.status === "confirmed").length}
+              </span>
+            }
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+      
       {sortedBusinessOrders.map(order => (
         <Card key={order.id} className={`overflow-hidden ${order.status === "booked" ? "border-blue-400 shadow-md" : ""}`}>
           <CardHeader className="pb-2">
@@ -105,7 +154,7 @@ const BusinessOrderList: React.FC = () => {
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div className="text-sm">
                 <span className="text-muted-foreground">Price:</span>{" "}
-                <span className="font-medium">€{order.price.toFixed(2)}</span>
+                <span className="font-medium">€{order.price?.toFixed(2)}</span>
               </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">Weight:</span>{" "}
@@ -166,10 +215,10 @@ const BusinessOrderList: React.FC = () => {
               </Button>
             )}
             
-            {order.status !== "pending" && (
+            {order.status !== "pending" && order.driverName && (
               <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
                 <MessageSquare className="h-4 w-4" />
-                Chat with Driver
+                Chat with {order.driverName}
               </Button>
             )}
             

@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import AuthForm from "@/components/auth/AuthForm";
 import OrderForm from "@/components/business/OrderForm";
 import BusinessOrderList from "@/components/business/BusinessOrderList";
-import { LogOut } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Businesses = () => {
@@ -35,7 +35,12 @@ const Businesses = () => {
             
             <div className="flex justify-between items-center py-4">
               <h2 className="text-xl font-semibold">Your Orders</h2>
-              <OrderForm />
+              <OrderForm>
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  New Order
+                </Button>
+              </OrderForm>
             </div>
             
             <BusinessOrderList />
