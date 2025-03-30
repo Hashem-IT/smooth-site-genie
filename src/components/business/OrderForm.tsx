@@ -64,7 +64,6 @@ const OrderForm = () => {
       reader.onloadend = () => {
         const imageUrl = reader.result as string;
         createOrder({
-          ...data,
           name: data.name,
           description: data.description,
           price: data.price,
@@ -73,6 +72,7 @@ const OrderForm = () => {
           fromAddress: data.fromAddress,
           toAddress: data.toAddress,
           imageUrl: imageUrl || "/placeholder.svg",
+          driverId: null
         });
         setOpen(false);
         resetForm();
@@ -80,7 +80,6 @@ const OrderForm = () => {
       reader.readAsDataURL(imageFile);
     } else {
       createOrder({
-        ...data,
         name: data.name,
         description: data.description,
         price: data.price,
@@ -89,6 +88,7 @@ const OrderForm = () => {
         fromAddress: data.fromAddress,
         toAddress: data.toAddress,
         imageUrl: "/placeholder.svg",
+        driverId: null
       });
       setOpen(false);
       resetForm();

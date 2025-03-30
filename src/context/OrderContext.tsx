@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Order } from "@/types";
+import { Order, OrderStatus } from "@/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -10,7 +10,7 @@ interface OrderContextType {
   userOrders: Order[];
   availableOrders: Order[];
   filteredOrders: (status: string) => Order[];
-  createOrder: (orderData: Omit<Order, "id" | "businessId" | "businessName" | "status" | "createdAt">) => Promise<void>;
+  createOrder: (orderData: Partial<Omit<Order, "id" | "businessId" | "businessName" | "status" | "createdAt">>) => Promise<void>;
   bookOrder: (orderId: string) => Promise<void>;
   confirmOrder: (orderId: string) => Promise<void>;
   updateOrderLocation: (orderId: string, lat: number, lng: number) => Promise<void>;
@@ -126,7 +126,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Neue Bestellung erstellen
-  const createOrder = async (orderData: Omit<Order, "id" | "businessId" | "businessName" | "status" | "createdAt">) => {
+  const createOrder = async (orderData: Partial<Omit<Order, "id" | "businessId" | "businessName" | "status" | "createdAt">>) => {
     if (!user || user.role !== 'business') {
       toast({
         title: "Fehler",
@@ -152,10 +152,11 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         weight: orderData.weight,
         size: orderData.size,
         image_url: imageData || orderData.imageUrl || "/placeholder.svg",
-        status: 'pending',
+        status: 'pending' as OrderStatus,
         from_address: orderData.fromAddress,
         to_address: orderData.toAddress,
         created_at: new Date().toISOString(),
+        driver_id: null,
       };
       
       const { error } = await supabase

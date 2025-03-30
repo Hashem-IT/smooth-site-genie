@@ -1,5 +1,5 @@
 
-import { Order } from "@/types";
+import { Order, OrderStatus } from "@/types";
 import { User } from "@/types";
 
 export const filterOrdersByUser = (orders: Order[], user: User | null) => {
@@ -34,7 +34,7 @@ export const MOCK_ORDERS: Order[] = [
     weight: 2.5,
     size: "Medium",
     imageUrl: "/placeholder.svg",
-    status: "pending",
+    status: "pending" as OrderStatus,
     createdAt: new Date().toISOString(),
     driverId: null,
     pickupAddress: "123 Pickup St",
