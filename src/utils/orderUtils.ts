@@ -36,6 +36,5 @@ export const MOCK_ORDERS: Order[] = [
     imageUrl: "/placeholder.svg",
     status: "pending",
     createdAt: new Date(),
-    driverId: null, // Add the missing property
   },
 ];

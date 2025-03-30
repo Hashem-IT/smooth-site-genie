@@ -8,15 +8,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Drivers = () => {
-  const { user, isAuthenticated, logout, isLoading } = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
+  const { user, isAuthenticated, logout } = useAuth();
 
   return (
     <Layout>
@@ -32,16 +24,11 @@ const Drivers = () => {
               </div>
               <Button 
                 variant="outline" 
-                onClick={handleLogout}
-                className="flex items-center gap-2"
-                disabled={isLoading}
+                onClick={logout}
+                className="flex items-center gap-2 border-2 hover:bg-accent/80"
               >
-                {isLoading ? "Loading..." : (
-                  <>
-                    <LogOut className="h-4 w-4" />
-                    <span>Logout</span>
-                  </>
-                )}
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
               </Button>
             </div>
             
