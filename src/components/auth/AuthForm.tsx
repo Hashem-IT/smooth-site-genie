@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,10 +25,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Reset error when changing form type
+  useEffect(() => {
+    setError(null);
+  }, [isRegister]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
     
     try {
       console.log("Form submitted:", { isRegister, email, password, selectedRole });
@@ -40,8 +47,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
     } catch (error: any) {
       console.error("Authentication error:", error);
       setError(error.message || "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+  
+  // Determine button disabled state and text
+  const buttonDisabled = isLoading || isSubmitting;
+  const buttonText = isSubmitting || isLoading
+    ? "Loading..."
+    : isRegister
+      ? "Create account"
+      : "Log in";
   
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -72,6 +89,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                disabled={buttonDisabled}
               />
             </div>
           )}
@@ -85,6 +103,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={buttonDisabled}
             />
           </div>
           
@@ -94,6 +113,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
+              disabled={buttonDisabled}
             />
             {isRegister && <PasswordStrengthChecker password={password} />}
           </div>
@@ -106,11 +126,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
               className="flex space-x-4"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="business" id="business" />
+                <RadioGroupItem value="business" id="business" disabled={buttonDisabled} />
                 <Label htmlFor="business">Business</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="driver" id="driver" />
+                <RadioGroupItem value="driver" id="driver" disabled={buttonDisabled} />
                 <Label htmlFor="driver">Driver</Label>
               </div>
             </RadioGroup>
@@ -121,13 +141,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
             className="w-full h-11 mt-6 text-base font-medium shadow-sm hover:shadow-md"
             variant="default"
             size="lg"
-            disabled={isLoading}
+            disabled={buttonDisabled}
           >
-            {isLoading
-              ? "Loading..."
-              : isRegister
-              ? "Create account"
-              : "Log in"}
+            {buttonText}
           </Button>
         </form>
       </CardContent>
@@ -135,7 +151,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
         <Button
           variant="link"
           onClick={() => setIsRegister(!isRegister)}
-          disabled={isLoading}
+          disabled={buttonDisabled}
           className="text-primary font-medium"
         >
           {isRegister
