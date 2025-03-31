@@ -12,6 +12,7 @@ import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
 import { getFromStorage } from "@/utils/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/hooks/use-toast";
 
 const BusinessOrderList: React.FC = () => {
   const {
@@ -29,19 +30,34 @@ const BusinessOrderList: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("all");
 
-  // Refresh orders when component mounts
+  // Refresh orders when component mounts and periodically
   useEffect(() => {
+    console.log("BusinessOrderList mounted, loading orders");
     loadOrders();
+    
     // Add a timer to refresh orders periodically
     const refreshInterval = setInterval(() => {
+      console.log("Refreshing orders (interval)");
       loadOrders();
     }, 10000); // Refresh every 10 seconds
     
     return () => clearInterval(refreshInterval);
   }, [loadOrders]);
   
-  // Nur Bestellungen anzeigen, die dem aktuellen Business-Benutzer gehören
+  // Filter orders to show only those belonging to this business
   const businessOrders = orders.filter(order => order.businessId === user?.id);
+  
+  // Log to debug order status
+  useEffect(() => {
+    if (businessOrders.length > 0) {
+      console.log("Business orders:", businessOrders.map(o => ({
+        id: o.id, 
+        name: o.name,
+        status: o.status, 
+        driverId: o.driverId
+      })));
+    }
+  }, [businessOrders]);
   
   // Filter orders by status
   const getFilteredOrders = (status: string) => {
@@ -49,14 +65,14 @@ const BusinessOrderList: React.FC = () => {
     return businessOrders.filter(order => order.status === status);
   };
   
-  // Sortieren, damit gebuchte Bestellungen, die Bestätigung benötigen, zuerst erscheinen
+  // Sort orders to prioritize those needing confirmation
   const sortedBusinessOrders = [...getFilteredOrders(activeTab)].sort((a, b) => {
     if (a.status === "booked" && b.status !== "booked") return -1;
     if (a.status !== "booked" && b.status === "booked") return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
   
-  // Benachrichtigungen laden
+  // Load notifications
   useEffect(() => {
     if (user && user.role === "business") {
       const businessNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
@@ -71,8 +87,22 @@ const BusinessOrderList: React.FC = () => {
     delivered: "bg-purple-500"
   };
   
-  const handleConfirmOrder = (orderId: string) => {
-    confirmOrder(orderId);
+  const handleConfirmOrder = async (orderId: string) => {
+    console.log("Confirming order:", orderId);
+    try {
+      await confirmOrder(orderId);
+      toast({
+        title: "Order confirmed",
+        description: "The driver has been notified and will proceed with delivery."
+      });
+    } catch (error) {
+      console.error("Error confirming order:", error);
+      toast({
+        title: "Confirmation failed",
+        description: "There was a problem confirming the order. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   const openChat = (order: Order) => {
@@ -85,7 +115,7 @@ const BusinessOrderList: React.FC = () => {
     setIsMapOpen(true);
   };
   
-  // Anzahl der Bestellungen, die Bestätigung benötigen
+  // Count of orders needing confirmation
   const pendingConfirmations = businessOrders.filter(order => order.status === "booked").length;
   
   if (businessOrders.length === 0) {

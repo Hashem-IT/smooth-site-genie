@@ -8,10 +8,12 @@ import { MOCK_ORDERS } from "@/utils/orderUtils";
 const STORAGE_KEY = "easydrop-orders";
 
 export const loadOrders = (): Order[] => {
+  console.log("Loading orders from storage");
   return getFromStorage<Order[]>(STORAGE_KEY, MOCK_ORDERS);
 };
 
 export const saveOrders = (orders: Order[]): void => {
+  console.log("Saving orders to storage:", orders.length);
   saveToStorage(STORAGE_KEY, orders);
 };
 
@@ -37,6 +39,8 @@ export const createNewOrder = (
     ...orderData,
   };
 
+  console.log("Created new order:", newOrder);
+  
   toast({
     title: "Order created",
     description: "Your order has been created successfully.",
@@ -59,8 +63,11 @@ export const bookOrderItem = (
     return orders;
   }
 
+  console.log("Booking order:", orderId, "by driver:", user.id);
+  
   const updatedOrders = orders.map((order) => {
     if (order.id === orderId && order.status === "pending") {
+      console.log("Found order to book:", order.id);
       return {
         ...order,
         status: "booked" as const,  // Type assertion to ensure correct status type
@@ -117,8 +124,11 @@ export const confirmOrderItem = (
     return orders;
   }
 
+  console.log("Confirming order:", orderId, "by business:", user.id);
+  
   const updatedOrders = orders.map((order) => {
     if (order.id === orderId && order.businessId === user.id && order.status === "booked") {
+      console.log("Found order to confirm:", order.id);
       return { 
         ...order, 
         status: "confirmed" as const  // Type assertion to ensure correct status type
@@ -127,7 +137,10 @@ export const confirmOrderItem = (
     return order;
   });
 
-  if (updatedOrders.some(order => order.id === orderId && order.status === "confirmed")) {
+  const orderWasConfirmed = updatedOrders.some(order => order.id === orderId && order.status === "confirmed");
+  console.log("Order was confirmed:", orderWasConfirmed);
+  
+  if (orderWasConfirmed) {
     toast({
       title: "Order confirmed",
       description: "You have confirmed this order. The driver can now proceed with delivery.",

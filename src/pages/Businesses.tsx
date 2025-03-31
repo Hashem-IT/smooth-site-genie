@@ -14,10 +14,18 @@ const Businesses = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { loadOrders } = useOrders();
 
-  // Load orders when the page loads
+  // Load orders when the page loads and refresh periodically
   useEffect(() => {
     if (isAuthenticated && user?.role === "business") {
+      // Initial load
       loadOrders();
+      
+      // Set up interval to refresh orders
+      const refreshInterval = setInterval(() => {
+        loadOrders();
+      }, 15000); // Refresh every 15 seconds
+      
+      return () => clearInterval(refreshInterval);
     }
   }, [isAuthenticated, user, loadOrders]);
 
