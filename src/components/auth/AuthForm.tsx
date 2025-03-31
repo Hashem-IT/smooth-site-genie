@@ -26,9 +26,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
   const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  // Initialize with 'connected' instead of 'checking' to avoid unnecessary loading state
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('connected');
   
-  // Check Supabase connection on component mount
+  // Check Supabase connection only if there's an error or explicit need
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -38,7 +39,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
         if (error) {
           console.error("Supabase connection error:", error);
           setConnectionStatus('error');
-          setError("Database connection error. Please try again later.");
+          setError("Datenbank-Verbindungsfehler. Bitte versuchen Sie es später erneut.");
         } else {
           console.log("Supabase connection successful");
           setConnectionStatus('connected');
@@ -46,10 +47,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
       } catch (err) {
         console.error("Supabase connection check failed:", err);
         setConnectionStatus('error');
-        setError("Unable to connect to the authentication service. Please check your internet connection and try again.");
+        setError("Verbindung zum Authentifizierungsdienst nicht möglich. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.");
       }
     };
     
+    // Only check connection if we're showing the form
     checkConnection();
   }, []);
   
@@ -58,7 +60,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
     setError(null);
     
     if (connectionStatus === 'error') {
-      setError("Cannot perform authentication while disconnected from the database. Please check your connection and try again.");
+      setError("Authentifizierung nicht möglich, während keine Verbindung zur Datenbank besteht. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.");
       return;
     }
     
@@ -75,19 +77,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
     }
   };
   
-  // Show loading state while checking connection
+  // Only show loading state if explicitly checking connection
   if (connectionStatus === 'checking') {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
-          <CardTitle>{isRegister ? "Create an account" : "Log in"}</CardTitle>
+          <CardTitle>{isRegister ? "Konto erstellen" : "Anmelden"}</CardTitle>
           <CardDescription>
-            Connecting to authentication service...
+            Verbindung zum Authentifizierungsdienst wird hergestellt...
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">Establishing secure connection...</p>
+          <p className="mt-4 text-muted-foreground">Sichere Verbindung wird hergestellt...</p>
         </CardContent>
       </Card>
     );
@@ -96,11 +98,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>{isRegister ? "Create an account" : "Log in"}</CardTitle>
+        <CardTitle>{isRegister ? "Konto erstellen" : "Anmelden"}</CardTitle>
         <CardDescription>
           {isRegister
-            ? "Enter your details to create a new account"
-            : "Enter your credentials to access your account"}
+            ? "Geben Sie Ihre Daten ein, um ein neues Konto zu erstellen"
+            : "Geben Sie Ihre Anmeldedaten ein, um auf Ihr Konto zuzugreifen"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -115,7 +117,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Cannot connect to authentication service. Please check your internet connection and refresh the page.
+              Keine Verbindung zum Authentifizierungsdienst möglich. Bitte überprüfen Sie Ihre Internetverbindung und aktualisieren Sie die Seite.
             </AlertDescription>
           </Alert>
         )}
@@ -127,7 +129,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
               <Input
                 id="name"
                 type="text"
-                placeholder="Enter your name"
+                placeholder="Geben Sie Ihren Namen ein"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -136,11 +138,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-Mail</Label>
             <Input
               id="email"
               type="email"
-              placeholder="Enter your email"
+              placeholder="Geben Sie Ihre E-Mail ein"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -148,17 +150,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Passwort</Label>
             <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Geben Sie Ihr Passwort ein"
             />
             {isRegister && <PasswordStrengthChecker password={password} />}
           </div>
           
           <div className="space-y-2">
-            <Label>I am a:</Label>
+            <Label>Ich bin ein:</Label>
             <RadioGroup
               defaultValue={selectedRole}
               onValueChange={(value) => setSelectedRole(value as UserRole)}
@@ -166,11 +168,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="business" id="business" />
-                <Label htmlFor="business">Business</Label>
+                <Label htmlFor="business">Unternehmen</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="driver" id="driver" />
-                <Label htmlFor="driver">Driver</Label>
+                <Label htmlFor="driver">Fahrer</Label>
               </div>
             </RadioGroup>
           </div>
@@ -183,10 +185,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
             disabled={isLoading || connectionStatus === 'error'}
           >
             {isLoading
-              ? "Loading..."
+              ? "Laden..."
               : isRegister
-              ? "Create account"
-              : "Log in"}
+              ? "Konto erstellen"
+              : "Anmelden"}
           </Button>
         </form>
       </CardContent>
@@ -198,8 +200,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           className="text-primary font-medium"
         >
           {isRegister
-            ? "Already have an account? Log in"
-            : "Don't have an account? Register"}
+            ? "Haben Sie bereits ein Konto? Anmelden"
+            : "Haben Sie kein Konto? Registrieren"}
         </Button>
       </CardFooter>
     </Card>
