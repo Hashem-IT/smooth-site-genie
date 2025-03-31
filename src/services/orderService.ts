@@ -26,6 +26,7 @@ export const loadOrders = async (): Promise<Order[]> => {
       
       if (data && data.length > 0) {
         console.log("Successfully loaded orders from Supabase:", data.length);
+        // Ensure status is cast to OrderStatus type
         return data.map(order => ({
           id: order.id,
           businessId: order.business_id,
@@ -36,7 +37,7 @@ export const loadOrders = async (): Promise<Order[]> => {
           weight: order.weight,
           size: order.size,
           imageUrl: order.image_url,
-          status: order.status,
+          status: order.status as "pending" | "booked" | "confirmed" | "delivered",
           driverId: order.driver_id,
           driverName: order.driver_name,
           createdAt: order.created_at,
