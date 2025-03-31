@@ -26,34 +26,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
   const [error, setError] = useState<string | null>(null);
-  // Initialize with 'connected' instead of 'checking' to avoid unnecessary loading state
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('connected');
-  
-  // Check Supabase connection only if there's an error or explicit need
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        // Simple health check - try to get version info
-        const { data, error } = await supabase.from('profiles').select('count', { count: 'exact' }).limit(1);
-        
-        if (error) {
-          console.error("Supabase connection error:", error);
-          setConnectionStatus('error');
-          setError("Datenbank-Verbindungsfehler. Bitte versuchen Sie es später erneut.");
-        } else {
-          console.log("Supabase connection successful");
-          setConnectionStatus('connected');
-        }
-      } catch (err) {
-        console.error("Supabase connection check failed:", err);
-        setConnectionStatus('error');
-        setError("Verbindung zum Authentifizierungsdienst nicht möglich. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.");
-      }
-    };
-    
-    // Only check connection if we're showing the form
-    checkConnection();
-  }, []);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error'>('connected');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,24 +49,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
       setError(error.message || "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
     }
   };
-  
-  // Only show loading state if explicitly checking connection
-  if (connectionStatus === 'checking') {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle>{isRegister ? "Konto erstellen" : "Anmelden"}</CardTitle>
-          <CardDescription>
-            Verbindung zum Authentifizierungsdienst wird hergestellt...
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">Sichere Verbindung wird hergestellt...</p>
-        </CardContent>
-      </Card>
-    );
-  }
   
   return (
     <Card className="w-full max-w-md mx-auto">
