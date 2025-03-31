@@ -1,33 +1,61 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import AuthForm from "@/components/auth/AuthForm";
 import OrderForm from "@/components/business/OrderForm";
 import BusinessOrderList from "@/components/business/BusinessOrderList";
-import { LogOut } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrders } from "@/context/OrderContext";
+import { toast } from "@/hooks/use-toast";
 
 const Businesses = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { loadOrders } = useOrders();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load orders when the page loads and refresh periodically
   useEffect(() => {
     if (isAuthenticated && user?.role === "business") {
       // Initial load
+      console.log("Initial orders load");
       loadOrders();
       
       // Set up interval to refresh orders
       const refreshInterval = setInterval(() => {
+        console.log("Periodic refresh of orders");
         loadOrders();
       }, 15000); // Refresh every 15 seconds
       
       return () => clearInterval(refreshInterval);
     }
   }, [isAuthenticated, user, loadOrders]);
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    if (isAuthenticated && user?.role === "business") {
+      setIsRefreshing(true);
+      try {
+        console.log("Manual refresh of orders");
+        await loadOrders();
+        toast({
+          title: "Orders refreshed",
+          description: "Your order list has been updated with the latest data.",
+        });
+      } catch (error) {
+        console.error("Error refreshing orders:", error);
+        toast({
+          title: "Refresh failed",
+          description: "There was a problem refreshing your orders. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+  };
 
   // Show a loading state while authentication is being checked
   if (isLoading && !isAuthenticated) {
@@ -58,14 +86,25 @@ const Businesses = () => {
                   Welcome, {user.name}! Manage your delivery orders here.
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={logout}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={logout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Logout</span>
+                </Button>
+              </div>
             </div>
             
             <div className="flex justify-between items-center py-4">
