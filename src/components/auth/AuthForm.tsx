@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { UserRole } from "@/types";
 import PasswordInput from "./PasswordInput";
 import PasswordStrengthChecker from "./PasswordStrengthChecker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthFormProps {
   role: UserRole;
@@ -25,10 +26,41 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
   const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  
+  // Check Supabase connection on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        // Simple health check - try to get version info
+        const { data, error } = await supabase.from('profiles').select('count', { count: 'exact' }).limit(1);
+        
+        if (error) {
+          console.error("Supabase connection error:", error);
+          setConnectionStatus('error');
+          setError("Database connection error. Please try again later.");
+        } else {
+          console.log("Supabase connection successful");
+          setConnectionStatus('connected');
+        }
+      } catch (err) {
+        console.error("Supabase connection check failed:", err);
+        setConnectionStatus('error');
+        setError("Unable to connect to the authentication service. Please check your internet connection and try again.");
+      }
+    };
+    
+    checkConnection();
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    
+    if (connectionStatus === 'error') {
+      setError("Cannot perform authentication while disconnected from the database. Please check your connection and try again.");
+      return;
+    }
     
     try {
       console.log("Form submitted:", { isRegister, email, password, selectedRole });
@@ -42,6 +74,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
       setError(error.message || "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
     }
   };
+  
+  // Show loading state while checking connection
+  if (connectionStatus === 'checking') {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle>{isRegister ? "Create an account" : "Log in"}</CardTitle>
+          <CardDescription>
+            Connecting to authentication service...
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">Establishing secure connection...</p>
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -58,6 +108,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {connectionStatus === 'error' && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Cannot connect to authentication service. Please check your internet connection and refresh the page.
+            </AlertDescription>
           </Alert>
         )}
         
@@ -121,7 +180,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
             className="w-full h-11 mt-6 text-base font-medium shadow-sm hover:shadow-md"
             variant="default"
             size="lg"
-            disabled={isLoading}
+            disabled={isLoading || connectionStatus === 'error'}
           >
             {isLoading
               ? "Loading..."
