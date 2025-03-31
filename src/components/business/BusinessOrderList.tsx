@@ -32,10 +32,16 @@ const BusinessOrderList: React.FC = () => {
   // Refresh orders when component mounts
   useEffect(() => {
     loadOrders();
+    // Add a timer to refresh orders periodically
+    const refreshInterval = setInterval(() => {
+      loadOrders();
+    }, 10000); // Refresh every 10 seconds
+    
+    return () => clearInterval(refreshInterval);
   }, [loadOrders]);
   
   // Nur Bestellungen anzeigen, die dem aktuellen Business-Benutzer gehören
-  const businessOrders = userOrders.filter(order => order.businessId === user?.id);
+  const businessOrders = orders.filter(order => order.businessId === user?.id);
   
   // Filter orders by status
   const getFilteredOrders = (status: string) => {

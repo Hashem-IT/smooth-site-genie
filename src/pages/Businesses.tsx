@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import AuthForm from "@/components/auth/AuthForm";
@@ -8,9 +8,18 @@ import BusinessOrderList from "@/components/business/BusinessOrderList";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOrders } from "@/context/OrderContext";
 
 const Businesses = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { loadOrders } = useOrders();
+
+  // Load orders when the page loads
+  useEffect(() => {
+    if (isAuthenticated && user?.role === "business") {
+      loadOrders();
+    }
+  }, [isAuthenticated, user, loadOrders]);
 
   // Show a loading state while authentication is being checked
   if (isLoading && !isAuthenticated) {
