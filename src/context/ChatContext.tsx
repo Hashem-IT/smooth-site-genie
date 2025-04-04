@@ -1,14 +1,14 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
 
 interface ChatContextType {
   messages: Message[];
   sendMessage: (orderId: string, text: string) => Promise<void>;
   loadMessages: (orderId: string) => Promise<void>;
-  orderMessages: (orderId: string) => Message[]; // Add this function to the context type
+  orderMessages: (orderId: string) => Message[];
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -17,27 +17,33 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messages, setMessages] = useState<Message[]>([]);
   const { user } = useAuth();
 
-  // Add this function to filter messages by order ID
-  const orderMessages = (orderId: string): Message[] => {
-    return messages.filter(message => message.orderId === orderId);
-  };
+  // Auto-load all messages when user logs in
+  useEffect(() => {
+    if (user) {
+      console.log("User logged in, loading all messages");
+      loadAllMessages();
+      setupMessageSubscription();
+    }
+  }, [user]);
 
-  // Nachrichten für eine bestimmte Bestellung laden
-  const loadMessages = async (orderId: string) => {
+  // Function to load messages for all orders
+  const loadAllMessages = async () => {
     if (!user) return;
 
     try {
+      console.log("Loading all messages");
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('order_id', orderId)
         .order('created_at', { ascending: true });
 
       if (error) {
+        console.error("Error loading messages:", error);
         throw error;
       }
 
       if (data) {
+        console.log(`Loaded ${data.length} messages`);
         const formattedMessages: Message[] = data.map(item => ({
           id: item.id,
           orderId: item.order_id,
@@ -51,21 +57,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setMessages(formattedMessages);
       }
     } catch (error: any) {
-      console.error("Fehler beim Laden der Nachrichten:", error.message);
+      console.error("Error loading messages:", error.message);
+      toast({
+        title: "Error loading messages",
+        description: "There was a problem loading messages. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      // Echtzeit-Abonnement für neue Nachrichten
-      const messagesSubscription = supabase
-        .channel('messages_channel')
-        .on('postgres_changes', { 
+  // Set up realtime subscription for messages
+  const setupMessageSubscription = () => {
+    console.log("Setting up message subscription");
+    const channel = supabase
+      .channel('messages_changes')
+      .on(
+        'postgres_changes',
+        { 
           event: 'INSERT', 
           schema: 'public', 
           table: 'messages'
-        }, (payload: any) => {
-          // Nachricht zum lokalen Zustand hinzufügen
+        },
+        (payload: any) => {
+          console.log("New message received:", payload);
           const newMessage = payload.new;
           setMessages(prev => [...prev, {
             id: newMessage.id,
@@ -76,20 +90,70 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             text: newMessage.text,
             createdAt: new Date(newMessage.created_at),
           }]);
-        })
-        .subscribe();
-        
-      return () => {
-        supabase.removeChannel(messagesSubscription);
-      };
-    }
-  }, [user]);
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      console.log("Removing message subscription");
+      supabase.removeChannel(channel);
+    };
+  };
 
-  // Neue Nachricht senden
-  const sendMessage = async (orderId: string, text: string) => {
-    if (!user || !text.trim()) return;
+  // Add this function to filter messages by order ID
+  const orderMessages = (orderId: string): Message[] => {
+    return messages.filter(message => message.orderId === orderId);
+  };
+
+  // Load messages for a specific order
+  const loadMessages = async (orderId: string) => {
+    if (!user) return;
 
     try {
+      console.log(`Loading messages for order ${orderId}`);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error("Error loading messages for order:", error);
+        throw error;
+      }
+
+      if (data) {
+        console.log(`Loaded ${data.length} messages for order ${orderId}`);
+        const orderSpecificMessages: Message[] = data.map(item => ({
+          id: item.id,
+          orderId: item.order_id,
+          senderId: item.sender_id,
+          senderName: item.sender_name,
+          senderRole: item.sender_role as "business" | "driver",
+          text: item.text,
+          createdAt: new Date(item.created_at),
+        }));
+
+        // Update only messages for this order, keep other messages
+        setMessages(prev => [
+          ...prev.filter(msg => msg.orderId !== orderId),
+          ...orderSpecificMessages
+        ]);
+      }
+    } catch (error: any) {
+      console.error("Error loading messages for order:", error.message);
+    }
+  };
+
+  // Send a new message
+  const sendMessage = async (orderId: string, text: string) => {
+    if (!user || !text.trim()) {
+      console.log("Cannot send message: user not logged in or text empty");
+      return;
+    }
+
+    try {
+      console.log(`Sending message to order ${orderId}: ${text}`);
       const newMessage = {
         order_id: orderId,
         sender_id: user.id,
@@ -99,15 +163,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('messages')
-        .insert(newMessage);
+        .insert(newMessage)
+        .select('*')
+        .single();
 
       if (error) {
+        console.error("Error sending message:", error);
         throw error;
       }
+
+      console.log("Message sent successfully:", data);
     } catch (error: any) {
-      console.error("Fehler beim Senden der Nachricht:", error.message);
+      console.error("Error sending message:", error.message);
+      toast({
+        title: "Message not sent",
+        description: "There was a problem sending your message. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -117,7 +191,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         messages,
         sendMessage,
         loadMessages,
-        orderMessages, // Add orderMessages to context value
+        orderMessages,
       }}
     >
       {children}

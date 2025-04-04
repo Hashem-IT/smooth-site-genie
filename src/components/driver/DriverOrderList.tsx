@@ -125,10 +125,18 @@ const DriverOrderList: React.FC = () => {
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         {!isMyOrder && (
-          <Button onClick={() => handleBookOrder(order.id)} size="sm" className="flex items-center gap-1">
-            <CheckCircle className="h-4 w-4" />
-            Book This Order
-          </Button>
+          <>
+            <Button onClick={() => handleBookOrder(order.id)} size="sm" className="flex items-center gap-1">
+              <CheckCircle className="h-4 w-4" />
+              Book This Order
+            </Button>
+            
+            {/* New: Add Chat button for available orders */}
+            <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
+              <MessageSquare className="h-4 w-4" />
+              Chat with Business
+            </Button>
+          </>
         )}
         
         {isMyOrder && order.status === "confirmed" && (

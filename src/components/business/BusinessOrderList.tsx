@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -5,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon, Bell, RefreshCcw } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare, Bell, RefreshCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
@@ -40,8 +41,8 @@ const BusinessOrderList: React.FC = () => {
     // Add a timer to refresh orders periodically
     const refreshInterval = setInterval(() => {
       console.log("Refreshing orders (interval)");
-      loadOrders(); // Fixed: removed the silent parameter
-    }, 15000); // Refresh every 15 seconds
+      loadOrders();
+    }, 10000); // Refresh more frequently - every 10 seconds
     
     return () => clearInterval(refreshInterval);
   }, [loadOrders]);
@@ -322,14 +323,32 @@ const BusinessOrderList: React.FC = () => {
               )}
             </div>
             
-            {order.driverName && (
+            {(order.driverName || order.status === "pending") && (
               <div className={`mt-2 p-2 ${order.status === "booked" ? "bg-blue-50 border border-blue-200" : "bg-muted"} rounded-md`}>
-                <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
-                
-                {order.status === "booked" && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Dieser Fahrer wartet auf Ihre Bestätigung.
-                  </p>
+                {order.driverName ? (
+                  <>
+                    <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
+                    
+                    {order.status === "booked" && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        Dieser Fahrer wartet auf Ihre Bestätigung.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1 w-full justify-center"
+                    onClick={() => {
+                      if (order.id) {
+                        openChat(order);
+                      }
+                    }}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Chat mit Interessenten
+                  </Button>
                 )}
               </div>
             )}
@@ -359,7 +378,7 @@ const BusinessOrderList: React.FC = () => {
               </Button>
             )}
             
-            {order.status !== "pending" && order.driverName && (
+            {order.driverName && (
               <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
                 <MessageSquare className="h-4 w-4" />
                 Chat mit {order.driverName}
@@ -391,7 +410,7 @@ const BusinessOrderList: React.FC = () => {
                   <span>Chat - {selectedOrder.name}</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Chat mit {selectedOrder.driverName || "dem Fahrer"} über diese Bestellung
+                  Chat mit {selectedOrder.driverName || "Interessenten"} über diese Bestellung
                 </DialogDescription>
               </DialogHeader>
               <ChatInterface orderId={selectedOrder.id} />

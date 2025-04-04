@@ -22,10 +22,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
   const messages = orderMessages(orderId);
   const order = orders.find(o => o.id === orderId);
   
-  // Determine if the current user can chat in this order
+  // Updated logic to allow drivers to chat before booking
   const canChat = !!user && !!order && (
     (user.role === "business" && order.businessId === user.id) ||
-    (user.role === "driver" && order.driverId === user.id)
+    (user.role === "driver") // Allow all drivers to chat with any order
   );
   
   useEffect(() => {
