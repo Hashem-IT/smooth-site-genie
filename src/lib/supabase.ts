@@ -18,7 +18,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       
       // Set a timeout for the query to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout
       
       const { data, error } = await supabase
         .from('profiles')
@@ -31,11 +31,24 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
         console.error('Supabase connection check failed:', error.message);
         attempts++;
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Increased wait time
         continue;
       }
       
       console.log('Supabase connection successful!');
+      
+      // Enable realtime for orders table
+      const { data: realtimeData, error: realtimeError } = await supabase
+        .from('orders')
+        .select('id')
+        .limit(1);
+        
+      if (realtimeError) {
+        console.error('Error setting up realtime:', realtimeError);
+      } else {
+        console.log('Realtime setup successful');
+      }
+      
       return true;
     } catch (error) {
       console.error('Supabase connection check failed with exception:', error);
@@ -47,7 +60,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       }
       
       // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Increased wait time
     }
   }
   

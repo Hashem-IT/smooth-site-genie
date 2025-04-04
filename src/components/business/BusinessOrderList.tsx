@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -41,7 +40,7 @@ const BusinessOrderList: React.FC = () => {
     // Add a timer to refresh orders periodically
     const refreshInterval = setInterval(() => {
       console.log("Refreshing orders (interval)");
-      loadOrders(true); // silent refresh
+      loadOrders(); // Fixed: removed the silent parameter
     }, 15000); // Refresh every 15 seconds
     
     return () => clearInterval(refreshInterval);

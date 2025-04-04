@@ -24,7 +24,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const { user } = useAuth();
 
-  const loadOrders = async (silent = false) => {
+  const loadOrders = async () => {
     if (!user) return;
     
     if (isLoadingOrders) {
@@ -42,7 +42,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.log(`Attempt ${attempts + 1} to load orders...`);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         
         let query = supabase
           .from('orders')
@@ -94,13 +94,11 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         if (attempts >= maxRetries) {
           console.error('Max retries reached. Order loading failed.');
-          if (!silent) {
-            toast({
-              title: "Fehler",
-              description: "Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
-              variant: "destructive",
-            });
-          }
+          toast({
+            title: "Fehler",
+            description: "Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+            variant: "destructive",
+          });
           break;
         }
         
@@ -127,7 +125,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             table: 'orders'
           }, (payload) => {
             console.log("Realtime order update received:", payload);
-            loadOrders(true);
+            loadOrders();
           })
           .subscribe((status) => {
             console.log("Realtime subscription status:", status);
@@ -143,7 +141,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       const refreshInterval = setInterval(() => {
         console.log("Periodic order refresh");
-        loadOrders(true);
+        loadOrders();
       }, 30000);
       
       return () => {
