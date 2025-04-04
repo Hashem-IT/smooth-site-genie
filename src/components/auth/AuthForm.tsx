@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import PasswordInput from "./PasswordInput";
 import PasswordStrengthChecker from "./PasswordStrengthChecker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface AuthFormProps {
   role: UserRole;
@@ -26,16 +25,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
   const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error'>('connected');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    if (connectionStatus === 'error') {
-      setError("Authentifizierung nicht möglich, während keine Verbindung zur Datenbank besteht. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.");
-      return;
-    }
     
     try {
       console.log("Form submitted:", { isRegister, email, password, selectedRole });
@@ -65,15 +58,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        
-        {connectionStatus === 'error' && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Keine Verbindung zum Authentifizierungsdienst möglich. Bitte überprüfen Sie Ihre Internetverbindung und aktualisieren Sie die Seite.
-            </AlertDescription>
           </Alert>
         )}
         
@@ -137,13 +121,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ role }) => {
             className="w-full h-11 mt-6 text-base font-medium shadow-sm hover:shadow-md"
             variant="default"
             size="lg"
-            disabled={isLoading || connectionStatus === 'error'}
+            disabled={isLoading}
           >
-            {isLoading
-              ? "Laden..."
-              : isRegister
-              ? "Konto erstellen"
-              : "Anmelden"}
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Laden...
+              </span>
+            ) : isRegister ? (
+              "Konto erstellen"
+            ) : (
+              "Anmelden"
+            )}
           </Button>
         </form>
       </CardContent>

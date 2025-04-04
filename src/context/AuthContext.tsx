@@ -4,6 +4,7 @@ import { User, UserRole } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -26,49 +28,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Setting up auth state listener");
     
     // First set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.id);
       
-      if (event === 'SIGNED_IN' && session) {
-        try {
-          console.log("User signed in, fetching profile");
-          // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .maybeSingle();
+      // We need to use setTimeout to prevent deadlocks in the Supabase client
+      // This defers processing until after the event has completed
+      setTimeout(async () => {
+        if (event === 'SIGNED_IN' && newSession) {
+          try {
+            console.log("User signed in, fetching profile");
+            // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', newSession.user.id)
+              .maybeSingle();
+              
+            if (profileError) {
+              console.error("Error fetching profile:", profileError);
+              setIsLoading(false); // Make sure to set loading to false on error
+              return;
+            }
+              
+            if (profile) {
+              console.log("Profile found:", profile);
+              const userData: User = {
+                id: profile.id,
+                email: profile.email,
+                name: profile.name,
+                role: profile.role as UserRole,
+              };
+              
+              setUser(userData);
+              setSession(newSession);
+            } else {
+              console.log("No profile found for user:", newSession.user.id);
+              // Clear session when no profile is found
+              await supabase.auth.signOut();
+              setUser(null);
+              setSession(null);
+            }
             
-          if (profileError) {
-            console.error("Error fetching profile:", profileError);
+            setIsLoading(false); // Set loading to false after successful sign-in
+          } catch (error) {
+            console.error("Error in auth state change handler:", error);
             setIsLoading(false); // Make sure to set loading to false on error
-            return;
           }
-            
-          if (profile) {
-            console.log("Profile found:", profile);
-            const userData: User = {
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              role: profile.role as UserRole,
-            };
-            
-            setUser(userData);
-          } else {
-            console.log("No profile found for user:", session.user.id);
-          }
-          
-          setIsLoading(false); // Set loading to false after successful sign-in
-        } catch (error) {
-          console.error("Error in auth state change handler:", error);
-          setIsLoading(false); // Make sure to set loading to false on error
+        } else if (event === 'SIGNED_OUT') {
+          console.log("User signed out");
+          setUser(null);
+          setSession(null);
+          setIsLoading(false); // Set loading to false after sign-out
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log("Token refreshed");
+          setSession(newSession);
         }
-      } else if (event === 'SIGNED_OUT') {
-        console.log("User signed out");
-        setUser(null);
-        setIsLoading(false); // Set loading to false after sign-out
-      }
+      }, 0);
     });
     
     // Then check for existing session
@@ -77,16 +92,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         console.log("Checking for existing session");
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
         
-        if (session) {
-          console.log("Found existing session:", session.user.id);
+        if (existingSession) {
+          console.log("Found existing session:", existingSession.user.id);
           
           // Use maybeSingle instead of single to prevent errors when multiple or no rows are returned
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', existingSession.user.id)
             .maybeSingle();
             
           if (profileError) {
@@ -101,8 +116,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             
             setUser(userData);
+            setSession(existingSession);
           } else {
-            console.log("No profile found for session user:", session.user.id);
+            console.log("No profile found for session user:", existingSession.user.id);
+            // Sign out if no profile exists for this user
+            await supabase.auth.signOut();
           }
         } else {
           console.log("No existing session found");
@@ -178,6 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       
       setUser(userData);
+      setSession(data.session);
       
       toast({
         title: "Anmeldung erfolgreich",
@@ -260,6 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       
       setUser(userData);
+      setSession(data.session);
       
       toast({
         title: "Registrierung erfolgreich",
@@ -290,6 +310,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await supabase.auth.signOut();
       setUser(null);
+      setSession(null);
       navigate("/");
       toast({
         title: "Abgemeldet",

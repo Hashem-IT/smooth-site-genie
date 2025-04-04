@@ -11,7 +11,8 @@ export { supabase };
 // Add helper function to check connection
 export const checkSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabase.from('profiles').select('count', { count: 'exact' }).limit(1);
+    // Try a simple query that should always work
+    const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
     
     if (error) {
       console.error('Supabase connection check failed:', error.message);
