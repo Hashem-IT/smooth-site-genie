@@ -6,13 +6,14 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon, Bell } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare, LocateIcon, Bell, RefreshCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
 import { getFromStorage } from "@/utils/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BusinessOrderList: React.FC = () => {
   const {
@@ -30,8 +31,9 @@ const BusinessOrderList: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("all");
   const [isConfirming, setIsConfirming] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Refresh orders when component mounts and periodically
+  // Force orders refresh when component mounts and periodically
   useEffect(() => {
     console.log("BusinessOrderList mounted, loading orders");
     loadOrders();
@@ -39,14 +41,31 @@ const BusinessOrderList: React.FC = () => {
     // Add a timer to refresh orders periodically
     const refreshInterval = setInterval(() => {
       console.log("Refreshing orders (interval)");
-      loadOrders();
-    }, 10000); // Refresh every 10 seconds
+      loadOrders(true); // silent refresh
+    }, 15000); // Refresh every 15 seconds
     
     return () => clearInterval(refreshInterval);
   }, [loadOrders]);
   
+  // Manual refresh function with loading state
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    console.log("Manual refresh requested");
+    try {
+      await loadOrders();
+      toast({
+        title: "Aktualisiert",
+        description: "Bestellungen wurden aktualisiert",
+      });
+    } catch (error) {
+      console.error("Manual refresh error:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+  
   // Filter orders to show only those belonging to this business
-  const businessOrders = orders.filter(order => order.businessId === user?.id);
+  const businessOrders = user ? orders.filter(order => order.businessId === user.id) : [];
   
   // Debug to check what orders we have and their status
   useEffect(() => {
@@ -67,6 +86,8 @@ const BusinessOrderList: React.FC = () => {
           driverName: o.driverName
         })));
       }
+    } else {
+      console.log("No business orders available");
     }
   }, [businessOrders]);
   
@@ -105,8 +126,8 @@ const BusinessOrderList: React.FC = () => {
     try {
       await confirmOrder(orderId);
       toast({
-        title: "Order confirmed",
-        description: "The driver has been notified and will proceed with delivery."
+        title: "Bestellung bestätigt",
+        description: "Der Fahrer wurde benachrichtigt und wird mit der Lieferung fortfahren."
       });
       
       // Force a refresh to immediately show updated UI
@@ -114,8 +135,8 @@ const BusinessOrderList: React.FC = () => {
     } catch (error) {
       console.error("Error confirming order:", error);
       toast({
-        title: "Confirmation failed",
-        description: "There was a problem confirming the order. Please try again.",
+        title: "Bestätigung fehlgeschlagen",
+        description: "Es gab ein Problem bei der Bestätigung der Bestellung. Bitte versuchen Sie es erneut.",
         variant: "destructive"
       });
     } finally {
@@ -136,24 +157,76 @@ const BusinessOrderList: React.FC = () => {
   // Count of orders needing confirmation
   const pendingConfirmations = businessOrders.filter(order => order.status === "booked").length;
   
-  if (businessOrders.length === 0) {
-    return <div className="text-center p-8">
-        <Package className="h-12 w-12 mx-auto text-gray-400" />
-        <h3 className="mt-4 text-lg font-medium">No orders yet</h3>
-        <p className="mt-2 text-gray-500">Create your first order to get started.</p>
-      </div>;
+  // If no orders but we're still loading, show skeletons
+  if (businessOrders.length === 0 && isRefreshing) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-6 w-36" />
+              <Skeleton className="h-4 w-24" />
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Skeleton className="h-9 w-24" />
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    );
   }
   
-  return <div className="space-y-4">
+  if (businessOrders.length === 0) {
+    return (
+      <div className="text-center p-8">
+        <Package className="h-12 w-12 mx-auto text-gray-400" />
+        <h3 className="mt-4 text-lg font-medium">Keine Bestellungen vorhanden</h3>
+        <p className="mt-2 text-gray-500">Erstellen Sie Ihre erste Bestellung, um zu beginnen.</p>
+        
+        <Button 
+          onClick={handleManualRefresh} 
+          variant="outline" 
+          className="mt-4 flex items-center gap-2 mx-auto"
+          disabled={isRefreshing}
+        >
+          <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isRefreshing ? 'Aktualisiere...' : 'Aktualisieren'}</span>
+        </Button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end mb-2">
+        <Button
+          onClick={handleManualRefresh}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+          disabled={isRefreshing}
+        >
+          <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isRefreshing ? 'Aktualisiere...' : 'Aktualisieren'}</span>
+        </Button>
+      </div>
+      
       {pendingConfirmations > 0 && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-md flex items-center mb-4">
           <Bell className="h-5 w-5 text-amber-500 mr-2" />
           <div>
             <p className="font-medium text-amber-800">
-              You have {pendingConfirmations} {pendingConfirmations === 1 ? 'order' : 'orders'} that need your confirmation!
+              Sie haben {pendingConfirmations} {pendingConfirmations === 1 ? 'Bestellung' : 'Bestellungen'}, die Ihre Bestätigung benötigen!
             </p>
             <p className="text-sm text-amber-600">
-              Drivers are waiting for your approval to proceed with delivery.
+              Fahrer warten auf Ihre Freigabe, um mit der Lieferung fortzufahren.
             </p>
           </div>
         </div>
@@ -163,11 +236,11 @@ const BusinessOrderList: React.FC = () => {
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 mb-4">
           <TabsTrigger value="all" className="text-center">
-            All
+            Alle
             {businessOrders.length > 0 && <span className="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{businessOrders.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="pending" className="text-center">
-            Pending
+            Offen
             {businessOrders.filter(o => o.status === "pending").length > 0 && 
               <span className="ml-1 text-xs bg-yellow-200 text-yellow-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "pending").length}
@@ -175,7 +248,7 @@ const BusinessOrderList: React.FC = () => {
             }
           </TabsTrigger>
           <TabsTrigger value="booked" className="text-center">
-            Booked
+            Gebucht
             {businessOrders.filter(o => o.status === "booked").length > 0 && 
               <span className="ml-1 text-xs bg-blue-200 text-blue-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "booked").length}
@@ -183,7 +256,7 @@ const BusinessOrderList: React.FC = () => {
             }
           </TabsTrigger>
           <TabsTrigger value="confirmed" className="text-center">
-            Confirmed
+            Bestätigt
             {businessOrders.filter(o => o.status === "confirmed").length > 0 && 
               <span className="ml-1 text-xs bg-green-200 text-green-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "confirmed").length}
@@ -201,7 +274,12 @@ const BusinessOrderList: React.FC = () => {
                 <CardTitle className="text-lg">{order.name}</CardTitle>
                 <CardDescription className="text-sm">{order.description}</CardDescription>
               </div>
-              <Badge className={statusColors[order.status]}>{order.status}</Badge>
+              <Badge className={statusColors[order.status]}>
+                {order.status === "pending" && "Offen"}
+                {order.status === "booked" && "Gebucht"}
+                {order.status === "confirmed" && "Bestätigt"}
+                {order.status === "delivered" && "Geliefert"}
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="pb-2">
@@ -228,7 +306,7 @@ const BusinessOrderList: React.FC = () => {
                 <div className="flex items-start gap-2 text-sm">
                   <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                   <div>
-                    <span className="font-medium">From: </span>
+                    <span className="font-medium">Von: </span>
                     <span>{order.fromAddress}</span>
                   </div>
                 </div>
@@ -238,7 +316,7 @@ const BusinessOrderList: React.FC = () => {
                 <div className="flex items-start gap-2 text-sm">
                   <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                   <div>
-                    <span className="font-medium">To: </span>
+                    <span className="font-medium">Nach: </span>
                     <span>{order.toAddress}</span>
                   </div>
                 </div>
@@ -247,11 +325,11 @@ const BusinessOrderList: React.FC = () => {
             
             {order.driverName && (
               <div className={`mt-2 p-2 ${order.status === "booked" ? "bg-blue-50 border border-blue-200" : "bg-muted"} rounded-md`}>
-                <span className="text-sm font-medium">Driver: {order.driverName}</span>
+                <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
                 
                 {order.status === "booked" && (
                   <p className="text-xs text-blue-600 mt-1">
-                    This driver is waiting for your confirmation.
+                    Dieser Fahrer wartet auf Ihre Bestätigung.
                   </p>
                 )}
               </div>
@@ -271,12 +349,12 @@ const BusinessOrderList: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Confirming...
+                    Bestätige...
                   </>
                 ) : (
                   <>
                     <CheckCircle className="h-4 w-4" />
-                    Confirm Order
+                    Bestätigen
                   </>
                 )}
               </Button>
@@ -285,14 +363,14 @@ const BusinessOrderList: React.FC = () => {
             {order.status !== "pending" && order.driverName && (
               <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
                 <MessageSquare className="h-4 w-4" />
-                Chat with {order.driverName}
+                Chat mit {order.driverName}
               </Button>
             )}
             
             {order.status === "confirmed" && order.location && (
               <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openMap(order)}>
                 <MapPin className="h-4 w-4" />
-                Track
+                Verfolgen
               </Button>
             )}
             
@@ -314,7 +392,7 @@ const BusinessOrderList: React.FC = () => {
                   <span>Chat - {selectedOrder.name}</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Chat with {selectedOrder.driverName || "the driver"} about this order
+                  Chat mit {selectedOrder.driverName || "dem Fahrer"} über diese Bestellung
                 </DialogDescription>
               </DialogHeader>
               <ChatInterface orderId={selectedOrder.id} />
@@ -326,10 +404,10 @@ const BusinessOrderList: React.FC = () => {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
-                  <span>Track Order - {selectedOrder.name}</span>
+                  <span>Bestellung verfolgen - {selectedOrder.name}</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Track the location of your order in real-time
+                  Verfolgen Sie die Position Ihrer Bestellung in Echtzeit
                 </DialogDescription>
               </DialogHeader>
               <div className="h-[400px]">
@@ -339,7 +417,8 @@ const BusinessOrderList: React.FC = () => {
           </Dialog>
         </>
       )}
-    </div>;
+    </div>
+  );
 };
 
 export default BusinessOrderList;

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Order, OrderStatus } from "@/types";
 import { useAuth } from "./AuthContext";
@@ -22,110 +21,156 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const { user } = useAuth();
 
-  // Laden von Bestellungen aus Supabase
-  const loadOrders = async () => {
+  const loadOrders = async (silent = false) => {
     if (!user) return;
-
-    try {
-      let query = supabase
-        .from('orders')
-        .select('*');
-      
-      // Fahrer sehen alle Bestellungen
-      // Unternehmen sehen nur ihre eigenen Bestellungen
-      if (user.role === 'business') {
-        query = query.eq('business_id', user.id);
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (data) {
-        // Konvertieren der Datenbankdaten in das Order-Format der Anwendung
-        const formattedOrders: Order[] = data.map(item => ({
-          id: item.id,
-          businessId: item.business_id,
-          businessName: item.business_name,
-          name: item.name,
-          description: item.description,
-          price: item.price,
-          weight: item.weight,
-          size: item.size,
-          imageUrl: item.image_url,
-          status: item.status as OrderStatus, // Cast to OrderStatus type
-          driverId: item.driver_id,
-          driverName: item.driver_name,
-          createdAt: new Date(item.created_at),
-          fromAddress: item.from_address,
-          toAddress: item.to_address,
-          location: item.location_lat && item.location_lng 
-            ? { lat: item.location_lat, lng: item.location_lng } 
-            : undefined,
-        }));
-        
-        setOrders(formattedOrders);
-      }
-    } catch (error: any) {
-      console.error("Fehler beim Laden der Bestellungen:", error.message);
-      toast({
-        title: "Fehler",
-        description: "Bestellungen konnten nicht geladen werden.",
-        variant: "destructive",
-      });
+    
+    if (isLoadingOrders) {
+      console.log('Already loading orders, skipping');
+      return;
     }
+
+    setIsLoadingOrders(true);
+    
+    const maxRetries = 3;
+    let attempts = 0;
+    
+    while (attempts < maxRetries) {
+      try {
+        console.log(`Attempt ${attempts + 1} to load orders...`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        let query = supabase
+          .from('orders')
+          .select('*')
+          .abortSignal(controller.signal);
+        
+        if (user.role === 'business') {
+          query = query.eq('business_id', user.id);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        
+        clearTimeout(timeoutId);
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          console.log(`Successfully loaded ${data.length} orders`);
+          const formattedOrders: Order[] = data.map(item => ({
+            id: item.id,
+            businessId: item.business_id,
+            businessName: item.business_name,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            weight: item.weight,
+            size: item.size,
+            imageUrl: item.image_url,
+            status: item.status as OrderStatus,
+            driverId: item.driver_id,
+            driverName: item.driver_name,
+            createdAt: new Date(item.created_at).toISOString(),
+            fromAddress: item.from_address,
+            toAddress: item.to_address,
+            location: item.location_lat && item.location_lng 
+              ? { lat: item.location_lat, lng: item.location_lng } 
+              : undefined,
+          }));
+          
+          setOrders(formattedOrders);
+          setIsLoadingOrders(false);
+          return;
+        }
+      } catch (error: any) {
+        console.error(`Load orders attempt ${attempts + 1} failed:`, error.message);
+        attempts++;
+        
+        if (attempts >= maxRetries) {
+          console.error('Max retries reached. Order loading failed.');
+          if (!silent) {
+            toast({
+              title: "Fehler",
+              description: "Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+              variant: "destructive",
+            });
+          }
+          break;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+      }
+    }
+    
+    setIsLoadingOrders(false);
   };
 
-  // Initial und bei Benutzeränderungen laden
   useEffect(() => {
     if (user) {
+      console.log("User authenticated, loading orders");
       loadOrders();
       
-      // Echtzeit-Abonnement für Bestellungsänderungen
-      const ordersSubscription = supabase
-        .channel('orders_channel')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'orders'
-        }, (payload) => {
-          // Bestellungen neu laden bei Änderungen
-          loadOrders();
-        })
-        .subscribe();
+      const setupRealtimeSubscription = () => {
+        console.log("Setting up realtime subscription for orders");
         
+        const channel = supabase
+          .channel('orders-changes')
+          .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'orders'
+          }, (payload) => {
+            console.log("Realtime order update received:", payload);
+            loadOrders(true);
+          })
+          .subscribe((status) => {
+            console.log("Realtime subscription status:", status);
+          });
+          
+        return () => {
+          console.log("Cleaning up realtime subscription");
+          supabase.removeChannel(channel);
+        };
+      };
+      
+      const cleanup = setupRealtimeSubscription();
+      
+      const refreshInterval = setInterval(() => {
+        console.log("Periodic order refresh");
+        loadOrders(true);
+      }, 30000);
+      
       return () => {
-        supabase.removeChannel(ordersSubscription);
+        clearInterval(refreshInterval);
+        cleanup();
       };
     } else {
       setOrders([]);
     }
   }, [user]);
 
-  // Bestellungen für den aktuellen Benutzer filtern
   const userOrders = user
     ? orders.filter(order => 
         (user.role === 'business' && order.businessId === user.id) || 
         (user.role === 'driver' && order.driverId === user.id))
     : [];
 
-  // Verfügbare Bestellungen für Fahrer
   const availableOrders = user?.role === 'driver'
     ? orders.filter(order => order.status === 'pending')
     : [];
 
-  // Bestellungen nach Status filtern
   const filteredOrders = (status: string) => {
     return status === 'all'
       ? orders
       : orders.filter(order => order.status === status as OrderStatus);
   };
 
-  // Neue Bestellung erstellen
   const createOrder = async (orderData: Partial<Omit<Order, "id" | "businessId" | "businessName" | "status" | "createdAt">>) => {
     if (!user || user.role !== 'business') {
       toast({
@@ -183,14 +228,12 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Hilfsfunktion zum Hochladen von Bildern
   const uploadImage = async (imageUrl?: string): Promise<{ data: string | null, error: Error | null }> => {
     if (!imageUrl || imageUrl === "/placeholder.svg" || !imageUrl.startsWith('data:')) {
       return { data: imageUrl || null, error: null };
     }
     
     try {
-      // Base64-Bild in Datei konvertieren
       const base64Data = imageUrl.split(',')[1];
       const blobData = atob(base64Data);
       const arrayBuffer = new ArrayBuffer(blobData.length);
@@ -203,7 +246,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const blob = new Blob([uint8Array], { type: 'image/jpeg' });
       const file = new File([blob], `order-image-${Date.now()}.jpg`, { type: 'image/jpeg' });
       
-      // Datei in Supabase Storage hochladen
       const { data, error } = await supabase
         .storage
         .from('order-images')
@@ -213,7 +255,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
       
-      // URL des hochgeladenen Bildes abrufen
       const { data: { publicUrl } } = supabase
         .storage
         .from('order-images')
@@ -226,7 +267,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Bestellung buchen (für Fahrer)
   const bookOrder = async (orderId: string) => {
     if (!user || user.role !== 'driver') {
       toast({
@@ -238,6 +278,8 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
+      console.log(`Driver ${user.id} attempting to book order ${orderId}`);
+      
       const { error } = await supabase
         .from('orders')
         .update({
@@ -249,9 +291,11 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .eq('status', 'pending');
         
       if (error) {
+        console.error("Error booking order:", error);
         throw error;
       }
       
+      console.log(`Order ${orderId} successfully booked`);
       toast({
         title: "Bestellung gebucht",
         description: "Sie haben diese Bestellung erfolgreich gebucht. Warten Sie auf die Bestätigung.",
@@ -259,7 +303,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       await loadOrders();
     } catch (error: any) {
-      console.error("Fehler beim Buchen der Bestellung:", error);
+      console.error("Error booking order:", error);
       toast({
         title: "Fehler",
         description: error.message || "Die Bestellung konnte nicht gebucht werden.",
@@ -268,7 +312,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Bestellung bestätigen (für Unternehmen)
   const confirmOrder = async (orderId: string) => {
     if (!user || user.role !== 'business') {
       toast({
@@ -280,6 +323,8 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
+      console.log(`Business ${user.id} attempting to confirm order ${orderId}`);
+      
       const { error } = await supabase
         .from('orders')
         .update({
@@ -290,9 +335,11 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .eq('status', 'booked');
         
       if (error) {
+        console.error("Error confirming order:", error);
         throw error;
       }
       
+      console.log(`Order ${orderId} successfully confirmed`);
       toast({
         title: "Bestellung bestätigt",
         description: "Sie haben diese Bestellung bestätigt. Der Fahrer kann jetzt mit der Lieferung fortfahren.",
@@ -300,7 +347,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       await loadOrders();
     } catch (error: any) {
-      console.error("Fehler beim Bestätigen der Bestellung:", error);
+      console.error("Error confirming order:", error);
       toast({
         title: "Fehler",
         description: error.message || "Die Bestellung konnte nicht bestätigt werden.",
@@ -309,7 +356,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Standortaktualisierung der Bestellung (für Fahrer)
   const updateOrderLocation = async (orderId: string, lat: number, lng: number) => {
     if (!user || user.role !== 'driver') {
       return;
@@ -329,7 +375,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
       
-      // Bestellungen aktualisieren (ohne komplettes Neuladen)
       setOrders(prev => prev.map(order => {
         if (order.id === orderId && order.driverId === user.id) {
           return { ...order, location: { lat, lng } };
@@ -341,7 +386,6 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Bestellung als geliefert markieren
   const markOrderDelivered = async (orderId: string) => {
     if (!user) return;
 
