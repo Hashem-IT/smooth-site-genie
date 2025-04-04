@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -27,7 +26,6 @@ const DriverOrderList: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Simulate location updates for active orders
   React.useEffect(() => {
     if (!user) return;
     const confirmedOrders = userOrders.filter(order => order.status === "confirmed");
@@ -38,7 +36,7 @@ const DriverOrderList: React.FC = () => {
         const lng = 16.0 + Math.random() * 2;
         updateOrderLocation(order.id, lat, lng);
       });
-    }, 10000); // Update every 10 seconds
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [userOrders, user, updateOrderLocation]);
@@ -63,7 +61,6 @@ const DriverOrderList: React.FC = () => {
     delivered: "bg-purple-500"
   };
 
-  // Filter orders based on status
   const filteredAvailableOrders = statusFilter === "all" ? availableOrders : availableOrders.filter(order => order.status === statusFilter);
   const filteredUserOrders = statusFilter === "all" ? userOrders : userOrders.filter(order => order.status === statusFilter);
 
@@ -96,7 +93,6 @@ const DriverOrderList: React.FC = () => {
         
         {order.imageUrl && <img src={order.imageUrl} alt={order.name} className="h-20 w-full rounded-md mt-2 object-contain" />}
         
-        {/* Address Information */}
         <div className="mt-3 space-y-2">
           {order.fromAddress && (
             <div className="flex items-start gap-2 text-sm">
@@ -124,14 +120,13 @@ const DriverOrderList: React.FC = () => {
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {!isMyOrder && (
+        {!isMyOrder && order.status === 'pending' && (
           <>
             <Button onClick={() => handleBookOrder(order.id)} size="sm" className="flex items-center gap-1">
               <CheckCircle className="h-4 w-4" />
               Book This Order
             </Button>
             
-            {/* New: Add Chat button for available orders */}
             <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
               <MessageSquare className="h-4 w-4" />
               Chat with Business
@@ -145,18 +140,6 @@ const DriverOrderList: React.FC = () => {
             Mark Delivered
           </Button>
         )}
-        
-        {isMyOrder && (
-          <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
-            <MessageSquare className="h-4 w-4" />
-            Chat
-          </Button>
-        )}
-        
-        <div className="ml-auto flex items-center text-muted-foreground text-xs">
-          <Clock className="h-3 w-3 mr-1" />
-          {new Date(order.createdAt).toLocaleDateString()}
-        </div>
       </CardFooter>
     </Card>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -6,8 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, Bell, RefreshCcw } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare, Bell, RefreshCcw, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import OrderMap from "../shared/OrderMap";
 import { getFromStorage } from "@/utils/storage";
@@ -32,22 +31,21 @@ const BusinessOrderList: React.FC = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [isConfirming, setIsConfirming] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
-  // Force orders refresh when component mounts and periodically
   useEffect(() => {
     console.log("BusinessOrderList mounted, loading orders");
     loadOrders();
     
-    // Add a timer to refresh orders periodically
     const refreshInterval = setInterval(() => {
       console.log("Refreshing orders (interval)");
       loadOrders();
-    }, 10000); // Refresh more frequently - every 10 seconds
+    }, 10000);
     
     return () => clearInterval(refreshInterval);
   }, [loadOrders]);
   
-  // Manual refresh function with loading state
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     console.log("Manual refresh requested");
@@ -64,10 +62,8 @@ const BusinessOrderList: React.FC = () => {
     }
   };
   
-  // Filter orders to show only those belonging to this business
   const businessOrders = user ? orders.filter(order => order.businessId === user.id) : [];
   
-  // Debug to check what orders we have and their status
   useEffect(() => {
     if (businessOrders.length > 0) {
       console.log("Business orders:", businessOrders.map(o => ({
@@ -77,7 +73,6 @@ const BusinessOrderList: React.FC = () => {
         driverId: o.driverId
       })));
       
-      // Specifically log any booked orders that need confirmation
       const bookedOrders = businessOrders.filter(o => o.status === "booked");
       if (bookedOrders.length > 0) {
         console.log("Orders needing confirmation:", bookedOrders.map(o => ({
@@ -91,20 +86,17 @@ const BusinessOrderList: React.FC = () => {
     }
   }, [businessOrders]);
   
-  // Filter orders by status
   const getFilteredOrders = (status: string) => {
     if (status === "all") return businessOrders;
     return businessOrders.filter(order => order.status === status);
   };
   
-  // Sort orders to prioritize those needing confirmation
   const sortedBusinessOrders = [...getFilteredOrders(activeTab)].sort((a, b) => {
     if (a.status === "booked" && b.status !== "booked") return -1;
     if (a.status !== "booked" && b.status === "booked") return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
   
-  // Load notifications
   useEffect(() => {
     if (user && user.role === "business") {
       const businessNotifications = getFromStorage<Record<string, any[]>>("business-notifications", {});
@@ -130,7 +122,6 @@ const BusinessOrderList: React.FC = () => {
         description: "Der Fahrer wurde benachrichtigt und wird mit der Lieferung fortfahren."
       });
       
-      // Force a refresh to immediately show updated UI
       await loadOrders();
     } catch (error) {
       console.error("Error confirming order:", error);
@@ -154,10 +145,8 @@ const BusinessOrderList: React.FC = () => {
     setIsMapOpen(true);
   };
   
-  // Count of orders needing confirmation
   const pendingConfirmations = businessOrders.filter(order => order.status === "booked").length;
   
-  // If no orders but we're still loading, show skeletons
   if (businessOrders.length === 0 && isRefreshing) {
     return (
       <div className="space-y-4">
@@ -203,6 +192,167 @@ const BusinessOrderList: React.FC = () => {
     );
   }
   
+  const renderOrderCard = (order: Order) => (
+    <Card key={order.id} className="overflow-hidden">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg">{order.name}</CardTitle>
+            <CardDescription className="text-sm">{order.description}</CardDescription>
+          </div>
+          <Badge className={statusColors[order.status]}>
+            {order.status === "pending" && "Offen"}
+            {order.status === "booked" && "Gebucht"}
+            {order.status === "confirmed" && "Bestätigt"}
+            {order.status === "delivered" && "Geliefert"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <div className="text-sm">
+            <span className="text-muted-foreground">Price:</span>{" "}
+            <span className="font-medium">€{order.price?.toFixed(2)}</span>
+          </div>
+          <div className="text-sm">
+            <span className="text-muted-foreground">Weight:</span>{" "}
+            <span className="font-medium">{order.weight} kg</span>
+          </div>
+          <div className="text-sm">
+            <span className="text-muted-foreground">Size:</span>{" "}
+            <span className="font-medium">{order.size}</span>
+          </div>
+        </div>
+        
+        {order.imageUrl && <img src={order.imageUrl} alt={order.name} className="h-20 w-full rounded-md mt-2 object-contain" />}
+        
+        <div className="mt-3 space-y-2">
+          {order.fromAddress && (
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <div>
+                <span className="font-medium">Von: </span>
+                <span>{order.fromAddress}</span>
+              </div>
+            </div>
+          )}
+          
+          {order.toAddress && (
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <div>
+                <span className="font-medium">Nach: </span>
+                <span>{order.toAddress}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {(order.driverName || order.status === "pending") && (
+          <div className={`mt-2 p-2 ${order.status === "booked" ? "bg-blue-50 border border-blue-200" : "bg-muted"} rounded-md`}>
+            {order.driverName ? (
+              <>
+                <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
+                
+                {order.status === "booked" && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Dieser Fahrer wartet auf Ihre Bestätigung.
+                  </p>
+                )}
+              </>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-1 w-full justify-center"
+                onClick={() => {
+                  if (order.id) {
+                    openChat(order);
+                  }
+                }}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Chat mit Interessenten
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex flex-wrap gap-2">
+        {order.status === "booked" && (
+          <Button 
+            onClick={() => handleConfirmOrder(order.id)} 
+            size="sm" 
+            className="flex items-center gap-1 bg-green-500 hover:bg-green-600"
+            disabled={isConfirming === order.id}
+          >
+            {isConfirming === order.id ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Bestätige...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Bestätigen
+              </>
+            )}
+          </Button>
+        )}
+        
+        {order.driverName && (
+          <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
+            <MessageSquare className="h-4 w-4" />
+            Chat mit {order.driverName}
+          </Button>
+        )}
+        
+        {order.status === "confirmed" && order.location && (
+          <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openMap(order)}>
+            <MapPin className="h-4 w-4" />
+            Verfolgen
+          </Button>
+        )}
+        
+        {order.status === "pending" && (
+          <>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1 text-blue-600 border-blue-600 hover:bg-blue-50"
+              onClick={() => {
+                console.log("Reserve order", order.id);
+              }}
+            >
+              <CheckCircle className="h-4 w-4" />
+              Reserve
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="flex items-center gap-1"
+              onClick={() => {
+                setOrderToDelete(order);
+              }}
+              disabled={isDeleting === order.id}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </>
+        )}
+        
+        <div className="ml-auto flex items-center text-muted-foreground text-xs">
+          <Clock className="h-3 w-3 mr-1" />
+          {new Date(order.createdAt).toLocaleDateString()}
+        </div>
+      </CardFooter>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end mb-2">
@@ -226,13 +376,12 @@ const BusinessOrderList: React.FC = () => {
               Sie haben {pendingConfirmations} {pendingConfirmations === 1 ? 'Bestellung' : 'Bestellungen'}, die Ihre Bestätigung benötigen!
             </p>
             <p className="text-sm text-amber-600">
-              Fahrer warten auf Ihre Freigabe, um mit der Lieferung fortzufahren.
+              Fahrer warten auf Ihre Freigabe, um mit der Lieferung fortfahren.
             </p>
           </div>
         </div>
       )}
       
-      {/* Add tabs for filtering */}
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 mb-4">
           <TabsTrigger value="all" className="text-center">
@@ -267,137 +416,7 @@ const BusinessOrderList: React.FC = () => {
       </Tabs>
       
       {sortedBusinessOrders.map(order => (
-        <Card key={order.id} className={`overflow-hidden ${order.status === "booked" ? "border-blue-400 shadow-md" : ""}`}>
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-lg">{order.name}</CardTitle>
-                <CardDescription className="text-sm">{order.description}</CardDescription>
-              </div>
-              <Badge className={statusColors[order.status]}>
-                {order.status === "pending" && "Offen"}
-                {order.status === "booked" && "Gebucht"}
-                {order.status === "confirmed" && "Bestätigt"}
-                {order.status === "delivered" && "Geliefert"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <div className="text-sm">
-                <span className="text-muted-foreground">Price:</span>{" "}
-                <span className="font-medium">€{order.price?.toFixed(2)}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Weight:</span>{" "}
-                <span className="font-medium">{order.weight} kg</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Size:</span>{" "}
-                <span className="font-medium">{order.size}</span>
-              </div>
-            </div>
-            
-            {order.imageUrl && <img src={order.imageUrl} alt={order.name} className="h-20 w-full rounded-md mt-2 object-contain" />}
-            
-            {/* Address Information */}
-            <div className="mt-3 space-y-2">
-              {order.fromAddress && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <span className="font-medium">Von: </span>
-                    <span>{order.fromAddress}</span>
-                  </div>
-                </div>
-              )}
-              
-              {order.toAddress && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <span className="font-medium">Nach: </span>
-                    <span>{order.toAddress}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {(order.driverName || order.status === "pending") && (
-              <div className={`mt-2 p-2 ${order.status === "booked" ? "bg-blue-50 border border-blue-200" : "bg-muted"} rounded-md`}>
-                {order.driverName ? (
-                  <>
-                    <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
-                    
-                    {order.status === "booked" && (
-                      <p className="text-xs text-blue-600 mt-1">
-                        Dieser Fahrer wartet auf Ihre Bestätigung.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1 w-full justify-center"
-                    onClick={() => {
-                      if (order.id) {
-                        openChat(order);
-                      }
-                    }}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    Chat mit Interessenten
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-wrap gap-2">
-            {order.status === "booked" && (
-              <Button 
-                onClick={() => handleConfirmOrder(order.id)} 
-                size="sm" 
-                className="flex items-center gap-1 bg-green-500 hover:bg-green-600"
-                disabled={isConfirming === order.id}
-              >
-                {isConfirming === order.id ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Bestätige...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    Bestätigen
-                  </>
-                )}
-              </Button>
-            )}
-            
-            {order.driverName && (
-              <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
-                <MessageSquare className="h-4 w-4" />
-                Chat mit {order.driverName}
-              </Button>
-            )}
-            
-            {order.status === "confirmed" && order.location && (
-              <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openMap(order)}>
-                <MapPin className="h-4 w-4" />
-                Verfolgen
-              </Button>
-            )}
-            
-            <div className="ml-auto flex items-center text-muted-foreground text-xs">
-              <Clock className="h-3 w-3 mr-1" />
-              {new Date(order.createdAt).toLocaleDateString()}
-            </div>
-          </CardFooter>
-        </Card>
+        renderOrderCard(order)
       ))}
       
       {selectedOrder && (
@@ -434,6 +453,35 @@ const BusinessOrderList: React.FC = () => {
             </DialogContent>
           </Dialog>
         </>
+      )}
+      
+      {orderToDelete && (
+        <Dialog open={!!orderToDelete} onOpenChange={() => setOrderToDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Order</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this order? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setOrderToDelete(null)}
+                disabled={isDeleting === orderToDelete.id}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteOrder}
+                disabled={isDeleting === orderToDelete.id}
+              >
+                {isDeleting === orderToDelete.id ? 'Deleting...' : 'Delete'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
