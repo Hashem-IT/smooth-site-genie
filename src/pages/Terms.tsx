@@ -1,10 +1,7 @@
-
 import React from "react";
 import Layout from "@/components/layout/Layout";
-
 const Terms = () => {
-  return (
-    <Layout>
+  return <Layout>
       <div className="container py-10 max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Terms of Service</h1>
         
@@ -103,14 +100,10 @@ const Terms = () => {
           <h2 className="text-xl font-semibold mt-8 mb-4">9. Contact Information</h2>
           <p>
             If you have any questions about these Terms, please contact us at: 
-            <a href="mailto:legal@deliveryconnect.com" className="text-primary hover:underline ml-1">
-              legal@deliveryconnect.com
-            </a>
+            <a href="mailto:legal@deliveryconnect.com" className="text-primary hover:underline ml-1">ed.easydrop@gmail.com</a>
           </p>
         </div>
       </div>
-    </Layout>
-  );
+    </Layout>;
 };
-
 export default Terms;
