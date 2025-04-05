@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -5,23 +6,26 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, Bell, RefreshCcw, Trash2 } from "lucide-react";
+import { Package, Clock, CheckCircle, MapPin, MessageSquare, Bell, RefreshCcw, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
+import BusinessChatList from "./BusinessChatList";
 import OrderMap from "../shared/OrderMap";
 import { getFromStorage } from "@/utils/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
+import { useChat } from "@/context/ChatContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const BusinessOrderList: React.FC = () => {
   const {
     orders,
     userOrders,
-    confirmOrder,
     loadOrders
   } = useOrders();
+  const { orderMessages } = useChat();
   const {
     user
   } = useAuth();
@@ -34,6 +38,18 @@ const BusinessOrderList: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
+  const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
+
+  // Track when a chat was last opened
+  useEffect(() => {
+    if (selectedOrder && isChatOpen) {
+      setLastReadTimes(prev => ({
+        ...prev,
+        [selectedOrder.id]: new Date()
+      }));
+    }
+  }, [isChatOpen, selectedOrder]);
 
   useEffect(() => {
     console.log("BusinessOrderList mounted, loading orders");
@@ -64,28 +80,17 @@ const BusinessOrderList: React.FC = () => {
   };
   
   const businessOrders = user ? orders.filter(order => order.businessId === user.id) : [];
-  
-  useEffect(() => {
-    if (businessOrders.length > 0) {
-      console.log("Business orders:", businessOrders.map(o => ({
-        id: o.id, 
-        name: o.name,
-        status: o.status, 
-        driverId: o.driverId
-      })));
-      
-      const bookedOrders = businessOrders.filter(o => o.status === "booked");
-      if (bookedOrders.length > 0) {
-        console.log("Orders needing confirmation:", bookedOrders.map(o => ({
-          id: o.id,
-          name: o.name,
-          driverName: o.driverName
-        })));
-      }
-    } else {
-      console.log("No business orders available");
-    }
-  }, [businessOrders]);
+
+  // Check if an order has new messages
+  const hasNewMessages = (order: Order): boolean => {
+    const lastRead = lastReadTimes[order.id];
+    if (!lastRead) return orderMessages(order.id).length > 0;
+    
+    return orderMessages(order.id).some(msg => 
+      msg.createdAt > lastRead && 
+      msg.senderId !== user?.id
+    );
+  };
   
   const getFilteredOrders = (status: string) => {
     if (status === "all") return businessOrders;
@@ -147,6 +152,10 @@ const BusinessOrderList: React.FC = () => {
   const openChat = (order: Order) => {
     setSelectedOrder(order);
     setIsChatOpen(true);
+    setLastReadTimes(prev => ({
+      ...prev,
+      [order.id]: new Date()
+    }));
   };
   
   const openMap = (order: Order) => {
@@ -185,6 +194,13 @@ const BusinessOrderList: React.FC = () => {
     } finally {
       setIsDeleting(null);
     }
+  };
+  
+  const toggleChatExpanded = (orderId: string) => {
+    setExpandedChats(prev => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
   };
   
   const pendingConfirmations = businessOrders.filter(order => order.status === "booked").length;
@@ -290,29 +306,30 @@ const BusinessOrderList: React.FC = () => {
           )}
         </div>
         
-        {(order.driverName || order.status === "pending") && (
-          <div className={`mt-2 p-2 ${order.status === "booked" ? "bg-blue-50 border border-blue-200" : "bg-muted"} rounded-md`}>
-            {order.driverName ? (
-              <>
-                <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
-              </>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-1 w-full justify-center"
-                onClick={() => {
-                  if (order.id) {
-                    openChat(order);
-                  }
-                }}
-              >
+        {/* Chat section - collapsible list of driver chats */}
+        <Collapsible
+          open={expandedChats[order.id]}
+          onOpenChange={() => toggleChatExpanded(order.id)}
+          className="mt-4"
+        >
+          <CollapsibleTrigger asChild>
+            <div className={`flex items-center justify-between p-2 ${hasNewMessages(order) ? 'bg-blue-50 border border-blue-200' : 'bg-muted'} rounded-md cursor-pointer`}>
+              <div className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
-                Chat mit Interessenten
-              </Button>
-            )}
-          </div>
-        )}
+                <span className="text-sm font-medium">
+                  Chat with Drivers
+                  {hasNewMessages(order) && (
+                    <span className="ml-2 h-2 w-2 bg-red-500 rounded-full inline-block" />
+                  )}
+                </span>
+              </div>
+              {expandedChats[order.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <BusinessChatList orderId={order.id} />
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         {/* Status buttons */}
@@ -347,13 +364,6 @@ const BusinessOrderList: React.FC = () => {
             Delivered
           </Button>
         </div>
-        
-        {order.driverName && (
-          <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
-            <MessageSquare className="h-4 w-4" />
-            Chat mit {order.driverName}
-          </Button>
-        )}
         
         {order.status === "confirmed" && order.location && (
           <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openMap(order)}>
@@ -411,28 +421,40 @@ const BusinessOrderList: React.FC = () => {
       
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 mb-4">
-          <TabsTrigger value="all" className="text-center">
+          <TabsTrigger value="all" className="text-center relative">
             Alle
+            {businessOrders.some(order => hasNewMessages(order)) && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
+            )}
             {businessOrders.length > 0 && <span className="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{businessOrders.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="pending" className="text-center">
+          <TabsTrigger value="pending" className="text-center relative">
             Open
+            {businessOrders.filter(o => o.status === "pending" && hasNewMessages(o)).length > 0 && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
+            )}
             {businessOrders.filter(o => o.status === "pending").length > 0 && 
               <span className="ml-1 text-xs bg-yellow-200 text-yellow-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "pending").length}
               </span>
             }
           </TabsTrigger>
-          <TabsTrigger value="booked" className="text-center">
+          <TabsTrigger value="booked" className="text-center relative">
             Ordered
+            {businessOrders.filter(o => o.status === "booked" && hasNewMessages(o)).length > 0 && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
+            )}
             {businessOrders.filter(o => o.status === "booked").length > 0 && 
               <span className="ml-1 text-xs bg-blue-200 text-blue-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "booked").length}
               </span>
             }
           </TabsTrigger>
-          <TabsTrigger value="delivered" className="text-center">
+          <TabsTrigger value="delivered" className="text-center relative">
             Delivered
+            {businessOrders.filter(o => o.status === "delivered" && hasNewMessages(o)).length > 0 && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
+            )}
             {businessOrders.filter(o => o.status === "delivered").length > 0 && 
               <span className="ml-1 text-xs bg-purple-200 text-purple-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "delivered").length}
@@ -448,21 +470,6 @@ const BusinessOrderList: React.FC = () => {
       
       {selectedOrder && (
         <>
-          <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  <span>Chat - {selectedOrder.name}</span>
-                </DialogTitle>
-                <DialogDescription>
-                  Chat mit {selectedOrder.driverName || "Interessenten"} über diese Bestellung
-                </DialogDescription>
-              </DialogHeader>
-              <ChatInterface orderId={selectedOrder.id} />
-            </DialogContent>
-          </Dialog>
-          
           <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
             <DialogContent className="sm:max-w-[700px]">
               <DialogHeader>

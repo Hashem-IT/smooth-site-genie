@@ -11,14 +11,16 @@ import { toast } from "@/hooks/use-toast";
 
 interface ChatInterfaceProps {
   orderId: string;
+  partnerId?: string; // Optional specific partner ID for business users
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => {
   const { orderMessages, sendMessage } = useChat();
   const { user } = useAuth();
   const { orders } = useOrders();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [lastRead, setLastRead] = useState(new Date());
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const messages = orderMessages(orderId);
@@ -32,12 +34,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
 
   // Get the current chat partner (for business it's the driver, for driver it's the business)
   const chatPartner = user?.role === "business" 
-    ? order?.driverName || "Interessenten" 
+    ? (partnerId ? orders.find(o => o.driverId === partnerId)?.driverName : order?.driverName) || "Interessenten" 
     : order?.businessName || "Business";
   
   useEffect(() => {
     // Scroll to bottom whenever messages change
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Update last read time when messages are displayed
+    setLastRead(new Date());
   }, [messages]);
   
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -70,15 +74,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
     );
   }
   
-  // Filter messages to show driver-specific conversation if we're a business
+  // Filter messages to show conversations specific to the current user and partner
   const filteredMessages = messages.filter(msg => {
     if (user?.role === "business") {
-      // If we're a business, show messages between us and the selected driver
+      // If partnerId is provided, only show messages with that specific driver
+      if (partnerId) {
+        return msg.senderId === user.id || msg.senderId === partnerId;
+      }
+      // If order has assigned driver, only show those messages
       if (order?.driverId) {
-        // If order has assigned driver, only show those messages
         return msg.senderId === user.id || msg.senderId === order.driverId;
       }
-      // Show all messages for unassigned orders
+      // For business with no specific driver selected, show all messages for this order
       return true;
     } else if (user?.role === "driver") {
       // If we're a driver, only show our conversation with the business
