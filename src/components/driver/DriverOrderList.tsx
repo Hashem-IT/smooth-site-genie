@@ -1,10 +1,11 @@
+
 import React, { useState } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle, MapPin, MessageSquare, Truck, Filter } from "lucide-react";
+import { Package, Clock, MapPin, MessageSquare, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
@@ -18,9 +19,7 @@ const DriverOrderList: React.FC = () => {
   const {
     availableOrders,
     userOrders,
-    bookOrder,
-    updateOrderLocation,
-    markOrderDelivered
+    updateOrderLocation
   } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -40,14 +39,6 @@ const DriverOrderList: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [userOrders, user, updateOrderLocation]);
-
-  const handleBookOrder = (orderId: string) => {
-    bookOrder(orderId);
-  };
-
-  const handleMarkDelivered = (orderId: string) => {
-    markOrderDelivered(orderId);
-  };
 
   const openChat = (order: Order) => {
     setSelectedOrder(order);
@@ -72,7 +63,12 @@ const DriverOrderList: React.FC = () => {
             <CardTitle className="text-lg">{order.name}</CardTitle>
             <CardDescription className="text-sm">{order.description}</CardDescription>
           </div>
-          <Badge className={statusColors[order.status]}>{order.status}</Badge>
+          <Badge className={statusColors[order.status]}>
+            {order.status === "pending" && "Open"}
+            {order.status === "booked" && "Ordered"}
+            {order.status === "confirmed" && "Confirmed"}
+            {order.status === "delivered" && "Delivered"}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="pb-2">
@@ -120,26 +116,10 @@ const DriverOrderList: React.FC = () => {
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {!isMyOrder && order.status === 'pending' && (
-          <>
-            <Button onClick={() => handleBookOrder(order.id)} size="sm" className="flex items-center gap-1">
-              <CheckCircle className="h-4 w-4" />
-              Book This Order
-            </Button>
-            
-            <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
-              <MessageSquare className="h-4 w-4" />
-              Chat with Business
-            </Button>
-          </>
-        )}
-        
-        {isMyOrder && order.status === "confirmed" && (
-          <Button onClick={() => handleMarkDelivered(order.id)} size="sm" className="flex items-center gap-1">
-            <Truck className="h-4 w-4" />
-            Mark Delivered
-          </Button>
-        )}
+        <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
+          <MessageSquare className="h-4 w-4" />
+          Chat with Business
+        </Button>
       </CardFooter>
     </Card>
   );
@@ -155,8 +135,8 @@ const DriverOrderList: React.FC = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="pending">Available</SelectItem>
-            <SelectItem value="booked">Booked</SelectItem>
+            <SelectItem value="pending">Open</SelectItem>
+            <SelectItem value="booked">Ordered</SelectItem>
             <SelectItem value="confirmed">Confirmed</SelectItem>
             <SelectItem value="delivered">Delivered</SelectItem>
           </SelectContent>
@@ -186,7 +166,7 @@ const DriverOrderList: React.FC = () => {
             <div className="text-center p-8">
               <Package className="h-12 w-12 mx-auto text-gray-400" />
               <h3 className="mt-4 text-lg font-medium">No orders yet</h3>
-              <p className="mt-2 text-gray-500">Book your first order to get started.</p>
+              <p className="mt-2 text-gray-500">You will see orders assigned to you here.</p>
             </div>
           ) : (
             filteredUserOrders.map(order => renderOrderCard(order, true))

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -13,6 +14,7 @@ import { getFromStorage } from "@/utils/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/lib/supabase";
 
 const BusinessOrderList: React.FC = () => {
   const {
@@ -111,23 +113,31 @@ const BusinessOrderList: React.FC = () => {
     delivered: "bg-purple-500"
   };
   
-  const handleConfirmOrder = async (orderId: string) => {
-    console.log("Confirming order:", orderId);
-    setIsConfirming(orderId);
-    
+  const handleSetOrderStatus = async (orderId: string, status: "pending" | "booked" | "delivered") => {
+    if (!user || !orderId) return;
+
     try {
-      await confirmOrder(orderId);
+      setIsConfirming(orderId);
+      
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: status })
+        .eq('id', orderId)
+        .eq('business_id', user.id);
+        
+      if (error) throw error;
+      
       toast({
-        title: "Bestellung bestätigt",
-        description: "Der Fahrer wurde benachrichtigt und wird mit der Lieferung fortfahren."
+        title: "Status updated",
+        description: `Order status has been updated to ${status}.`
       });
       
       await loadOrders();
-    } catch (error) {
-      console.error("Error confirming order:", error);
+    } catch (error: any) {
+      console.error("Error updating order status:", error);
       toast({
-        title: "Bestätigung fehlgeschlagen",
-        description: "Es gab ein Problem bei der Bestätigung der Bestellung. Bitte versuchen Sie es erneut.",
+        title: "Update failed",
+        description: error.message || "Could not update order status.",
         variant: "destructive"
       });
     } finally {
@@ -143,6 +153,40 @@ const BusinessOrderList: React.FC = () => {
   const openMap = (order: Order) => {
     setSelectedOrder(order);
     setIsMapOpen(true);
+  };
+  
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete || !user) return;
+    
+    try {
+      setIsDeleting(orderToDelete.id);
+      
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderToDelete.id)
+        .eq('business_id', user.id)
+        .eq('status', 'pending');
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Order deleted",
+        description: "The order has been successfully deleted."
+      });
+      
+      setOrderToDelete(null);
+      await loadOrders();
+    } catch (error: any) {
+      console.error("Error deleting order:", error);
+      toast({
+        title: "Deletion failed",
+        description: error.message || "Could not delete the order.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(null);
+    }
   };
   
   const pendingConfirmations = businessOrders.filter(order => order.status === "booked").length;
@@ -201,10 +245,10 @@ const BusinessOrderList: React.FC = () => {
             <CardDescription className="text-sm">{order.description}</CardDescription>
           </div>
           <Badge className={statusColors[order.status]}>
-            {order.status === "pending" && "Offen"}
-            {order.status === "booked" && "Gebucht"}
-            {order.status === "confirmed" && "Bestätigt"}
-            {order.status === "delivered" && "Geliefert"}
+            {order.status === "pending" && "Open"}
+            {order.status === "booked" && "Ordered"}
+            {order.status === "confirmed" && "Confirmed"}
+            {order.status === "delivered" && "Delivered"}
           </Badge>
         </div>
       </CardHeader>
@@ -253,12 +297,6 @@ const BusinessOrderList: React.FC = () => {
             {order.driverName ? (
               <>
                 <span className="text-sm font-medium">Fahrer: {order.driverName}</span>
-                
-                {order.status === "booked" && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Dieser Fahrer wartet auf Ihre Bestätigung.
-                  </p>
-                )}
               </>
             ) : (
               <Button 
@@ -279,29 +317,38 @@ const BusinessOrderList: React.FC = () => {
         )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {order.status === "booked" && (
+        {/* Status buttons */}
+        <div className="flex flex-wrap gap-2">
           <Button 
-            onClick={() => handleConfirmOrder(order.id)} 
-            size="sm" 
-            className="flex items-center gap-1 bg-green-500 hover:bg-green-600"
+            onClick={() => handleSetOrderStatus(order.id, "pending")} 
+            size="sm"
+            variant={order.status === "pending" ? "default" : "outline"}
+            className="flex items-center gap-1"
             disabled={isConfirming === order.id}
           >
-            {isConfirming === order.id ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Bestätige...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4" />
-                Bestätigen
-              </>
-            )}
+            Open
           </Button>
-        )}
+          
+          <Button 
+            onClick={() => handleSetOrderStatus(order.id, "booked")} 
+            size="sm"
+            variant={order.status === "booked" ? "default" : "outline"}
+            className="flex items-center gap-1"
+            disabled={isConfirming === order.id}
+          >
+            Ordered
+          </Button>
+          
+          <Button 
+            onClick={() => handleSetOrderStatus(order.id, "delivered")} 
+            size="sm"
+            variant={order.status === "delivered" ? "default" : "outline"}
+            className="flex items-center gap-1"
+            disabled={isConfirming === order.id}
+          >
+            Delivered
+          </Button>
+        </div>
         
         {order.driverName && (
           <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => openChat(order)}>
@@ -318,31 +365,18 @@ const BusinessOrderList: React.FC = () => {
         )}
         
         {order.status === "pending" && (
-          <>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-1 text-blue-600 border-blue-600 hover:bg-blue-50"
-              onClick={() => {
-                console.log("Reserve order", order.id);
-              }}
-            >
-              <CheckCircle className="h-4 w-4" />
-              Reserve
-            </Button>
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              className="flex items-center gap-1"
-              onClick={() => {
-                setOrderToDelete(order);
-              }}
-              disabled={isDeleting === order.id}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          </>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            className="flex items-center gap-1"
+            onClick={() => {
+              setOrderToDelete(order);
+            }}
+            disabled={isDeleting === order.id}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
         )}
         
         <div className="ml-auto flex items-center text-muted-foreground text-xs">
@@ -373,10 +407,7 @@ const BusinessOrderList: React.FC = () => {
           <Bell className="h-5 w-5 text-amber-500 mr-2" />
           <div>
             <p className="font-medium text-amber-800">
-              Sie haben {pendingConfirmations} {pendingConfirmations === 1 ? 'Bestellung' : 'Bestellungen'}, die Ihre Bestätigung benötigen!
-            </p>
-            <p className="text-sm text-amber-600">
-              Fahrer warten auf Ihre Freigabe, um mit der Lieferung fortfahren.
+              Sie haben {pendingConfirmations} {pendingConfirmations === 1 ? 'Bestellung' : 'Bestellungen'} im Status "Ordered"!
             </p>
           </div>
         </div>
@@ -389,7 +420,7 @@ const BusinessOrderList: React.FC = () => {
             {businessOrders.length > 0 && <span className="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{businessOrders.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="pending" className="text-center">
-            Offen
+            Open
             {businessOrders.filter(o => o.status === "pending").length > 0 && 
               <span className="ml-1 text-xs bg-yellow-200 text-yellow-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "pending").length}
@@ -397,18 +428,18 @@ const BusinessOrderList: React.FC = () => {
             }
           </TabsTrigger>
           <TabsTrigger value="booked" className="text-center">
-            Gebucht
+            Ordered
             {businessOrders.filter(o => o.status === "booked").length > 0 && 
               <span className="ml-1 text-xs bg-blue-200 text-blue-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "booked").length}
               </span>
             }
           </TabsTrigger>
-          <TabsTrigger value="confirmed" className="text-center">
-            Bestätigt
-            {businessOrders.filter(o => o.status === "confirmed").length > 0 && 
-              <span className="ml-1 text-xs bg-green-200 text-green-700 rounded-full px-2">
-                {businessOrders.filter(o => o.status === "confirmed").length}
+          <TabsTrigger value="delivered" className="text-center">
+            Delivered
+            {businessOrders.filter(o => o.status === "delivered").length > 0 && 
+              <span className="ml-1 text-xs bg-purple-200 text-purple-700 rounded-full px-2">
+                {businessOrders.filter(o => o.status === "delivered").length}
               </span>
             }
           </TabsTrigger>
