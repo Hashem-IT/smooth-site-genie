@@ -5,8 +5,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "@/hooks/use-toast";
 
 interface ChatInterfaceProps {
   orderId: string;
@@ -17,6 +18,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
   const { user } = useAuth();
   const { orders } = useOrders();
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const messages = orderMessages(orderId);
@@ -38,12 +40,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
   
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() === "" || !canChat) return;
+    if (message.trim() === "" || !canChat || sending) return;
     
-    sendMessage(orderId, message);
-    setMessage("");
+    try {
+      setSending(true);
+      await sendMessage(orderId, message);
+      setMessage("");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
   };
   
   if (!canChat) {
@@ -124,9 +138,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
           className="flex-1"
+          disabled={sending}
         />
-        <Button type="submit" size="icon" disabled={!message.trim()}>
-          <Send className="h-4 w-4" />
+        <Button type="submit" size="icon" disabled={!message.trim() || sending}>
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
     </div>

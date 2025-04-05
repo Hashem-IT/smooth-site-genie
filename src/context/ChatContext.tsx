@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
@@ -145,7 +146,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Send a new message
+  // Send a new message - Fixed to avoid profiles or users table
   const sendMessage = async (orderId: string, text: string) => {
     if (!user || !text.trim()) {
       console.log("Cannot send message: user not logged in or text empty");
@@ -154,6 +155,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log(`Sending message to order ${orderId}: ${text}`);
+      
+      // Create a new message object with all required fields
       const newMessage = {
         order_id: orderId,
         sender_id: user.id,
@@ -163,18 +166,31 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         created_at: new Date().toISOString(),
       };
 
-      const { error, data } = await supabase
+      // Insert directly into messages table without any joins to users/profiles
+      const { error } = await supabase
         .from('messages')
-        .insert(newMessage)
-        .select('*')
-        .single();
+        .insert(newMessage);
 
       if (error) {
         console.error("Error sending message:", error);
         throw error;
       }
 
-      console.log("Message sent successfully:", data);
+      console.log("Message sent successfully");
+      
+      // Add message to local state for immediate display
+      const localMessage: Message = {
+        id: `temp-${Date.now()}`, // Temporary ID until we get the real one from subscription
+        orderId,
+        senderId: user.id,
+        senderName: user.name,
+        senderRole: user.role,
+        text: text.trim(),
+        createdAt: new Date(),
+      };
+      
+      setMessages(prev => [...prev, localMessage]);
+      
     } catch (error: any) {
       console.error("Error sending message:", error.message);
       toast({
