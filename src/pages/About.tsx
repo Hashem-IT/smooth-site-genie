@@ -1,10 +1,7 @@
-
 import React from "react";
 import Layout from "@/components/layout/Layout";
-
 const About = () => {
-  return (
-    <Layout>
+  return <Layout>
       <div className="container py-10 max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">About EasyDrop</h1>
         
@@ -53,14 +50,10 @@ const About = () => {
           <p>
             We're always looking to improve our service. If you have any questions, 
             suggestions, or feedback, please don't hesitate to contact us at 
-            <a href="mailto:info@easydrop.com" className="text-primary font-medium ml-1">
-              info@easydrop.com
-            </a>
+            <a href="mailto:info@easydrop.com" className="text-primary font-medium ml-1">ED.EasyDrop@gmail.com</a>
           </p>
         </div>
       </div>
-    </Layout>
-  );
+    </Layout>;
 };
-
 export default About;
