@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -165,8 +164,7 @@ const BusinessOrderList: React.FC = () => {
         .from('orders')
         .delete()
         .eq('id', orderToDelete.id)
-        .eq('business_id', user.id)
-        .eq('status', 'pending');
+        .eq('business_id', user.id);
         
       if (error) throw error;
       
@@ -364,20 +362,18 @@ const BusinessOrderList: React.FC = () => {
           </Button>
         )}
         
-        {order.status === "pending" && (
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            className="flex items-center gap-1"
-            onClick={() => {
-              setOrderToDelete(order);
-            }}
-            disabled={isDeleting === order.id}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
-        )}
+        <Button 
+          variant="destructive" 
+          size="sm" 
+          className="flex items-center gap-1"
+          onClick={() => {
+            setOrderToDelete(order);
+          }}
+          disabled={isDeleting === order.id}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </Button>
         
         <div className="ml-auto flex items-center text-muted-foreground text-xs">
           <Clock className="h-3 w-3 mr-1" />

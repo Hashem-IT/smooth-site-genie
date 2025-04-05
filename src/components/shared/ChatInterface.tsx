@@ -27,6 +27,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
     (user.role === "business" && order.businessId === user.id) ||
     (user.role === "driver") // Allow all drivers to chat with any order
   );
+
+  // Get the current chat partner (for business it's the driver, for driver it's the business)
+  const chatPartner = user?.role === "business" 
+    ? order?.driverName || "Interessenten" 
+    : order?.businessName || "Business";
   
   useEffect(() => {
     // Scroll to bottom whenever messages change
@@ -51,16 +56,38 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId }) => {
     );
   }
   
+  // Filter messages to show driver-specific conversation if we're a business
+  const filteredMessages = messages.filter(msg => {
+    if (user?.role === "business") {
+      // If we're a business, show messages between us and the selected driver
+      if (order?.driverId) {
+        // If order has assigned driver, only show those messages
+        return msg.senderId === user.id || msg.senderId === order.driverId;
+      }
+      // Show all messages for unassigned orders
+      return true;
+    } else if (user?.role === "driver") {
+      // If we're a driver, only show our conversation with the business
+      return msg.senderId === user.id || msg.senderId === order?.businessId;
+    }
+    return true;
+  });
+  
   return (
     <div className="flex flex-col h-[400px] max-h-[400px]">
+      <div className="pb-2 text-center border-b">
+        <p className="text-sm font-medium">
+          Chat with {chatPartner} about order "{order?.name}"
+        </p>
+      </div>
       <ScrollArea className="flex-1 p-3">
         <div className="space-y-4">
-          {messages.length === 0 ? (
+          {filteredMessages.length === 0 ? (
             <div className="text-center text-muted-foreground p-4">
               No messages yet. Start the conversation!
             </div>
           ) : (
-            messages.map((msg) => {
+            filteredMessages.map((msg) => {
               const isMyMessage = user?.id === msg.senderId;
               
               return (
