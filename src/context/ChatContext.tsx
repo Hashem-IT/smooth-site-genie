@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 
 interface ChatContextType {
   messages: Message[];
-  sendMessage: (orderId: string, text: string) => Promise<void>;
+  sendMessage: (orderId: string, text: string, partnerId?: string) => Promise<void>;
   loadMessages: (orderId: string) => Promise<void>;
   orderMessages: (orderId: string) => Message[];
   hasNewMessages: (orderId: string, lastReadTime?: Date) => boolean;
@@ -156,7 +156,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Send a new message
-  const sendMessage = async (orderId: string, text: string) => {
+  const sendMessage = async (orderId: string, text: string, partnerId?: string) => {
     if (!user || !text.trim()) {
       console.log("Cannot send message: user not logged in or text empty");
       return;
@@ -173,6 +173,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sender_role: user.role,
         text: text.trim(),
         created_at: new Date().toISOString(),
+        // For business users, we can add the partner_id if provided
+        // This helps with filtering messages to the right driver
+        ...(user.role === "business" && partnerId ? { partner_id: partnerId } : {})
       };
 
       // Insert directly into messages table without any joins to users/profiles

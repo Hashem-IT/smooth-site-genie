@@ -36,11 +36,12 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
       .map(msg => msg.senderId)
   ));
 
-  // Check if a driver has sent new messages
+  // Check if a driver has sent new messages since last read
   const hasNewMessages = (driverId: string): boolean => {
     const lastRead = lastReadTimes[driverId];
     if (!lastRead) return true;
     
+    // Only show new message indicator for messages from this specific driver
     return orderSpecificMessages.some(msg => 
       msg.senderId === driverId && 
       msg.createdAt > lastRead
@@ -62,10 +63,12 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
     return message?.senderName || "Unknown Driver";
   };
 
-  // Get the latest message from a specific driver
+  // Get the latest message from the conversation with a specific driver
   const getLatestMessage = (driverId: string) => {
+    // Filter to get only messages between this specific driver and the business
     const driverMessages = orderSpecificMessages.filter(
-      msg => msg.senderId === driverId || msg.senderId === user?.id
+      msg => (msg.senderId === driverId || msg.senderId === user?.id) &&
+             (msg.senderId === driverId || msg.senderId === user?.id)
     );
     
     if (driverMessages.length === 0) return null;

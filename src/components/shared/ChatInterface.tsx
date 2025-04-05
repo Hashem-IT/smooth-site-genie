@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 
@@ -17,13 +17,13 @@ interface ChatInterfaceProps {
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => {
   const { orderMessages, sendMessage } = useChat();
   const { user } = useAuth();
-  const { orders } = useOrders();
+  const { orders, markOrderDelivered } = useOrders();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [lastRead, setLastRead] = useState(new Date());
   const chatEndRef = useRef<HTMLDivElement>(null);
   
-  const messages = orderMessages(orderId);
+  const allMessages = orderMessages(orderId);
   const order = orders.find(o => o.id === orderId);
   
   // Updated logic to allow drivers to chat before booking
@@ -34,15 +34,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
 
   // Get the current chat partner (for business it's the driver, for driver it's the business)
   const chatPartner = user?.role === "business" 
-    ? (partnerId ? orders.find(o => o.driverId === partnerId)?.driverName : order?.driverName) || "Interessenten" 
+    ? (partnerId ? orders.find(o => o.driverId === partnerId)?.driverName || "Driver" : order?.driverName) || "Interested Driver" 
     : order?.businessName || "Business";
+
+  // For business users, we need to filter messages by the specific driver if provided
+  // For drivers, we filter messages between them and the business
+  const filteredMessages = allMessages.filter(msg => {
+    if (user?.role === "business" && partnerId) {
+      // Business user with specific driver selected - show only messages between them
+      return msg.senderId === user.id || msg.senderId === partnerId;
+    } 
+    else if (user?.role === "driver") {
+      // Driver - show only messages between them and the business
+      return msg.senderId === user.id || msg.senderId === order?.businessId;
+    }
+    // Fallback - show all messages for this order
+    return true;
+  });
   
   useEffect(() => {
     // Scroll to bottom whenever messages change
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     // Update last read time when messages are displayed
     setLastRead(new Date());
-  }, [messages]);
+  }, [filteredMessages]);
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +65,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     
     try {
       setSending(true);
-      await sendMessage(orderId, message);
+      // If this is a business user and they have selected a specific driver,
+      // make sure to include that in the sendMessage so we know who the message is for
+      await sendMessage(orderId, message, partnerId);
       setMessage("");
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -61,6 +78,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!order || !user) return;
+    
+    try {
+      await markOrderDelivered(orderId);
+      toast({
+        title: "Order updated",
+        description: "The order has been marked as delivered.",
+      });
+    } catch (error) {
+      console.error("Error updating order:", error);
+      toast({
+        title: "Update failed",
+        description: "Could not update the order status.",
+        variant: "destructive"
+      });
     }
   };
   
@@ -74,32 +110,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     );
   }
   
-  // Filter messages to show conversations specific to the current user and partner
-  const filteredMessages = messages.filter(msg => {
-    if (user?.role === "business") {
-      // If partnerId is provided, only show messages with that specific driver
-      if (partnerId) {
-        return msg.senderId === user.id || msg.senderId === partnerId;
-      }
-      // If order has assigned driver, only show those messages
-      if (order?.driverId) {
-        return msg.senderId === user.id || msg.senderId === order.driverId;
-      }
-      // For business with no specific driver selected, show all messages for this order
-      return true;
-    } else if (user?.role === "driver") {
-      // If we're a driver, only show our conversation with the business
-      return msg.senderId === user.id || msg.senderId === order?.businessId;
-    }
-    return true;
-  });
-  
   return (
     <div className="flex flex-col h-[400px] max-h-[400px]">
-      <div className="pb-2 text-center border-b">
+      <div className="pb-2 text-center border-b flex justify-between items-center">
         <p className="text-sm font-medium">
           Chat with {chatPartner} about order "{order?.name}"
         </p>
+        {user?.role === "driver" && (
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={handleDeleteOrder}
+            className="flex items-center gap-1"
+          >
+            <Trash2 className="h-3 w-3" />
+            Mark Delivered
+          </Button>
+        )}
       </div>
       <ScrollArea className="flex-1 p-3">
         <div className="space-y-4">
