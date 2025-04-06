@@ -40,9 +40,6 @@ const Navbar: React.FC = () => {
                     <Link to="/about" className="text-gray-700 hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>
                       About Us
                     </Link>
-                    <Link to="/settings" className="text-gray-700 hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>
-                      Settings
-                    </Link>
                   </div>
                 </div>}
             </> : <>
@@ -58,9 +55,6 @@ const Navbar: React.FC = () => {
                 </Link>
                 <Link to="/about" className="text-gray-700 hover:text-primary transition-colors">
                   About Us
-                </Link>
-                <Link to="/settings" className="text-gray-700 hover:text-primary transition-colors">
-                  Settings
                 </Link>
               </div>
             </>}
