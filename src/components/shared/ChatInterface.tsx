@@ -65,6 +65,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     
     try {
       setSending(true);
+      console.log("Sending message:", message);
+      console.log("Order ID:", orderId);
+      console.log("Partner ID:", partnerId);
+      
       // If this is a business user and they have selected a specific driver,
       // make sure to include that in the sendMessage so we know who the message is for
       await sendMessage(orderId, message, partnerId);

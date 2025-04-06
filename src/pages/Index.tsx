@@ -1,14 +1,16 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Building, Truck } from "lucide-react";
+
 const Index = () => {
   return <Layout>
       <div className="container py-16">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="flex justify-center mb-6">
-            <img alt="EasyDrop Logo" className="h-24 w-auto" src="https://drive.google.com/file/d/1cL4q4w1u5HdNOsO4xiSM_HEzj91L7n_c/view?usp=drive_link" />
+            <img alt="EasyDrop Logo" className="h-24 w-auto" src="/logo.png" />
           </div>
           <h1 className="text-4xl font-bold mb-4">
             EasyDrop Delivery Service

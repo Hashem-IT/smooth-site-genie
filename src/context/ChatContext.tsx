@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
@@ -165,44 +164,50 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log(`Sending message to order ${orderId}: ${text}`);
       
-      // Create a new message object with all required fields
-      const newMessage = {
+      // For debugging
+      console.log("Current user:", user);
+      console.log("Partner ID:", partnerId);
+      
+      // Create a new message object
+      const messageData = {
         order_id: orderId,
         sender_id: user.id,
         sender_name: user.name,
         sender_role: user.role,
-        text: text.trim(),
-        created_at: new Date().toISOString(),
-        // For business users, we can add the partner_id if provided
-        // This helps with filtering messages to the right driver
-        ...(user.role === "business" && partnerId ? { partner_id: partnerId } : {})
+        text: text.trim()
       };
 
-      // Insert directly into messages table without any joins to users/profiles
-      const { error } = await supabase
+      // Debug the actual data being sent
+      console.log("Message data to be sent:", messageData);
+
+      // Insert message into Supabase
+      const { data, error } = await supabase
         .from('messages')
-        .insert(newMessage);
+        .insert(messageData)
+        .select();
 
       if (error) {
         console.error("Error sending message:", error);
         throw error;
       }
 
-      console.log("Message sent successfully");
+      console.log("Message sent successfully:", data);
       
       // Add message to local state for immediate display
-      const localMessage: Message = {
-        id: `temp-${Date.now()}`, // Temporary ID until we get the real one from subscription
-        orderId,
-        senderId: user.id,
-        senderName: user.name,
-        senderRole: user.role,
-        text: text.trim(),
-        createdAt: new Date(),
-      };
-      
-      setMessages(prev => [...prev, localMessage]);
-      
+      if (data && data[0]) {
+        const newMsg: Message = {
+          id: data[0].id,
+          orderId,
+          senderId: user.id,
+          senderName: user.name,
+          senderRole: user.role,
+          text: text.trim(),
+          createdAt: new Date(),
+        };
+        
+        setMessages(prev => [...prev, newMsg]);
+        console.log("Message added to local state:", newMsg);
+      }
     } catch (error: any) {
       console.error("Error sending message:", error.message);
       toast({

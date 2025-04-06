@@ -1,19 +1,23 @@
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { MenuIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
+  
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+  
   return <nav className="bg-white shadow-sm py-4 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
           <Link to="/" className="font-bold text-2xl text-primary flex items-center gap-2">
-            <img alt="EasyDrop Logo" className="h-10 w-auto" src="https://drive.google.com/uc?export=view&id=1cL4q4w1u5HdNOsO4xiSM_HEzj91L7n_c" />
+            <img alt="EasyDrop Logo" className="h-10 w-auto" src="/logo.png" />
             <span>EasyDrop</span>
           </Link>
 
