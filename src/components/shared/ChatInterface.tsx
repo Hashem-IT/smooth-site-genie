@@ -26,10 +26,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   const allMessages = orderMessages(orderId);
   const order = orders.find(o => o.id === orderId);
   
-  // Updated logic to allow drivers to chat before booking
+  // Allow all drivers to chat with any order, regardless of booking status
   const canChat = !!user && !!order && (
     (user.role === "business" && order.businessId === user.id) ||
-    (user.role === "driver") // Allow all drivers to chat with any order
+    (user.role === "driver")
   );
 
   // Get the current chat partner (for business it's the driver, for driver it's the business)
@@ -69,8 +69,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       console.log("Order ID:", orderId);
       console.log("Partner ID:", partnerId);
       
-      // If this is a business user and they have selected a specific driver,
-      // make sure to include that in the sendMessage so we know who the message is for
+      // Make sure to pass the orderId and message
       await sendMessage(orderId, message, partnerId);
       setMessage("");
     } catch (error) {
