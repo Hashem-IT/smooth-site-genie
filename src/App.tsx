@@ -11,6 +11,10 @@ import Privacy from './pages/Privacy';
 import NotFound from './pages/NotFound';
 import Businesses from './pages/Businesses';
 import Drivers from './pages/Drivers';
+import Pricing from './pages/Pricing';
+import DriverRequirements from './pages/DriverRequirements';
+import DriverEarnings from './pages/DriverEarnings';
+import Guides from './pages/Guides';
 import { Toaster } from './components/ui/toaster';
 import { AuthProvider } from './context/AuthContext';
 import { OrderProvider } from './context/OrderContext';
@@ -30,6 +34,10 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/businesses" element={<Businesses />} />
             <Route path="/drivers" element={<Drivers />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/drivers/requirements" element={<DriverRequirements />} />
+            <Route path="/drivers/earnings" element={<DriverEarnings />} />
+            <Route path="/guides" element={<Guides />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />

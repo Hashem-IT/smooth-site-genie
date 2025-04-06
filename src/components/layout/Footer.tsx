@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-4">DeliveryConnect</h3>
+            <h3 className="text-xl font-bold mb-4">EasyDrop</h3>
             <p className="text-gray-400 mb-4">
               Connecting businesses and drivers to provide efficient and reliable delivery services.
             </p>
@@ -28,7 +28,7 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/businesses/register" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/businesses" className="text-gray-400 hover:text-white transition-colors">
                   Register Your Business
                 </Link>
               </li>
@@ -74,13 +74,18 @@ const Footer: React.FC = () => {
                   Support
                 </Link>
               </li>
+              <li>
+                <Link to="/guides" className="text-gray-400 hover:text-white transition-colors">
+                  View Guides
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
         
         <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400">
-            © {new Date().getFullYear()} DeliveryConnect. All rights reserved.
+            © {new Date().getFullYear()} EasyDrop. All rights reserved.
           </p>
           <div className="flex space-x-6 mt-4 md:mt-0">
             <Link to="/terms" className="text-gray-400 hover:text-white transition-colors">
