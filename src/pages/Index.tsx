@@ -8,7 +8,7 @@ const Index = () => {
       <div className="container py-16">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="flex justify-center mb-6">
-            <img alt="EasyDrop Logo" src="/lovable-uploads/61c5dbee-88f9-49ff-9d5d-b838021f1a5c.png" className="h-24 w-auto object-none" />
+            <img alt="EasyDrop Logo" src="/lovable-uploads/61c5dbee-88f9-49ff-9d5d-b838021f1a5c.png" className="h-24 w-auto object-contain" />
           </div>
           <h1 className="text-4xl font-bold mb-4">
             EasyDrop Delivery Service
