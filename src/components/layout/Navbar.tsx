@@ -13,7 +13,7 @@ const Navbar: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
           <Link to="/" className="font-bold text-2xl text-primary flex items-center gap-2">
-            <img alt="EasyDrop Logo" className="h-10 w-auto" src="/lovable-uploads/1451c6b2-b907-4155-88b0-d65cb7dfbfff.png" />
+            <img alt="EasyDrop Logo" src="/lovable-uploads/1451c6b2-b907-4155-88b0-d65cb7dfbfff.png" className="h-10 w-auto rounded-full" />
             <span>EasyDrop</span>
           </Link>
 
