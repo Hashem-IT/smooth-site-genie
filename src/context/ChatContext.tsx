@@ -1,10 +1,10 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { MOCK_MESSAGES } from "@/utils/chatUtils";
+import { sendMessageToSupabase } from "@/services/chatService";
 
 interface ChatContextType {
   messages: Message[];
@@ -195,37 +195,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setMessages(prev => [...prev, optimisticMessage]);
 
-      // Insert message into Supabase
-      const { data, error } = await supabase
-        .from('messages')
-        .insert(messageData)
-        .select();
+      // Use the dedicated function to send message to Supabase
+      const success = await sendMessageToSupabase(
+        orderId,
+        user.id,
+        user.name,
+        user.role,
+        text.trim()
+      );
 
-      if (error) {
-        console.error("Error sending message:", error);
-        // Remove the optimistic message
+      if (!success) {
+        // Remove the optimistic message on failure
         setMessages(prev => prev.filter(msg => msg.id !== tempId));
-        throw error;
+        throw new Error("Failed to send message");
       }
 
-      console.log("Message sent successfully:", data);
+      console.log("Message sent successfully");
+      // The real message will come through the subscription
       
-      // Replace the temporary message with the real one if needed
-      if (data && data[0]) {
-        const newMsg: Message = {
-          id: data[0].id,
-          orderId,
-          senderId: user.id,
-          senderName: user.name,
-          senderRole: user.role,
-          text: text.trim(),
-          createdAt: new Date(data[0].created_at),
-        };
-        
-        setMessages(prev => prev.map(msg => 
-          msg.id === tempId ? newMsg : msg
-        ));
-      }
     } catch (error: any) {
       console.error("Error sending message:", error.message);
       toast({

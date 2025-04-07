@@ -4,6 +4,7 @@ import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
 import { getFromStorage, saveToStorage } from "@/utils/storage";
 import { MOCK_MESSAGES } from "@/utils/chatUtils";
+import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "easydrop-messages";
 
@@ -47,4 +48,33 @@ export const createNewMessage = (
     text,
     createdAt: new Date(),
   };
+};
+
+// Add a function to directly send a message to Supabase
+export const sendMessageToSupabase = async (
+  orderId: string,
+  senderId: string,
+  senderName: string,
+  senderRole: string,
+  text: string
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('messages').insert({
+      order_id: orderId,
+      sender_id: senderId,
+      sender_name: senderName,
+      sender_role: senderRole,
+      text: text.trim()
+    });
+
+    if (error) {
+      console.error("Error sending message to Supabase:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Exception sending message:", error);
+    return false;
+  }
 };
