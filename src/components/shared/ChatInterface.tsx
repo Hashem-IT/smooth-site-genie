@@ -69,9 +69,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       console.log("Order ID:", orderId);
       console.log("Partner ID:", partnerId);
       
-      // Make sure to pass the orderId and message
-      await sendMessage(orderId, message, partnerId);
+      // Save the message text before clearing the input
+      const messageText = message;
+      
+      // Clear the message input immediately for better UX
       setMessage("");
+      
+      // Make sure to pass the orderId and message
+      await sendMessage(orderId, messageText, partnerId);
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({
@@ -79,6 +84,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
+      // Restore the message text if sending fails
+      setMessage(message);
     } finally {
       setSending(false);
     }

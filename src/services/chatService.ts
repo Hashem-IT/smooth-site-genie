@@ -1,4 +1,3 @@
-
 import { Message, UserRole } from "@/types";
 import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
@@ -50,7 +49,6 @@ export const createNewMessage = (
   };
 };
 
-// Add a function to directly send a message to Supabase
 export const sendMessageToSupabase = async (
   orderId: string,
   senderId: string,
@@ -59,6 +57,14 @@ export const sendMessageToSupabase = async (
   text: string
 ): Promise<boolean> => {
   try {
+    console.log("Sending message to Supabase with data:", {
+      order_id: orderId,
+      sender_id: senderId,
+      sender_name: senderName,
+      sender_role: senderRole,
+      text: text.trim()
+    });
+    
     const { error } = await supabase.from('messages').insert({
       order_id: orderId,
       sender_id: senderId,
@@ -72,6 +78,7 @@ export const sendMessageToSupabase = async (
       return false;
     }
     
+    console.log("Message successfully sent to Supabase");
     return true;
   } catch (error) {
     console.error("Exception sending message:", error);

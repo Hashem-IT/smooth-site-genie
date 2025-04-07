@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
@@ -25,7 +26,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       console.log("User logged in, loading all messages");
       loadAllMessages();
-      setupMessageSubscription();
+      const cleanupSubscription = setupMessageSubscription();
+      return cleanupSubscription;
     } else {
       // Reset messages when user logs out
       setMessages([]);
@@ -97,7 +99,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
       
     return () => {
       console.log("Removing message subscription");
@@ -220,6 +224,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "There was a problem sending your message. Please try again.",
         variant: "destructive",
       });
+      throw error; // Re-throw to allow the UI to handle the error
     }
   };
 

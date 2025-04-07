@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
 
 // Import the supabase client from integrations
-import { supabase } from '@/integrations/supabase/client';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 
 // Export the client for backward compatibility
-export { supabase };
+export const supabase = supabaseClient;
 
 // Add helper function to check connection with timeout and retry logic
 export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => {
@@ -37,9 +37,9 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       
       console.log('Supabase connection successful!');
       
-      // Enable realtime for orders table
+      // Enable realtime for messages table
       const { data: realtimeData, error: realtimeError } = await supabase
-        .from('orders')
+        .from('messages')
         .select('id')
         .limit(1);
         
