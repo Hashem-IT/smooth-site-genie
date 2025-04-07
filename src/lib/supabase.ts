@@ -38,16 +38,9 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       console.log('Supabase connection successful!');
       
       // Enable realtime for messages table
-      const { data: realtimeData, error: realtimeError } = await supabase
-        .from('messages')
-        .select('id')
-        .limit(1);
-        
-      if (realtimeError) {
-        console.error('Error setting up realtime:', realtimeError);
-      } else {
-        console.log('Realtime setup successful');
-      }
+      supabase.channel('public:messages').subscribe((status) => {
+        console.log('Realtime subscription status for messages:', status);
+      });
       
       return true;
     } catch (error) {

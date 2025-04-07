@@ -52,7 +52,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
         console.log(`Loaded ${data.length} messages`);
         const formattedMessages: Message[] = data.map(item => ({
           id: item.id,
@@ -65,6 +65,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
 
         setMessages(formattedMessages);
+      } else {
+        console.log("No messages found in the database");
       }
     } catch (error: any) {
       console.error("Error loading messages:", error.message);
@@ -88,15 +90,31 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (payload: any) => {
           console.log("New message received:", payload);
           const newMessage = payload.new;
-          setMessages(prev => [...prev, {
-            id: newMessage.id,
-            orderId: newMessage.order_id,
-            senderId: newMessage.sender_id,
-            senderName: newMessage.sender_name,
-            senderRole: newMessage.sender_role as "business" | "driver",
-            text: newMessage.text,
-            createdAt: new Date(newMessage.created_at),
-          }]);
+          
+          if (!newMessage) {
+            console.error("Received payload with no new message data");
+            return;
+          }
+          
+          setMessages(prev => {
+            // Check if message already exists to prevent duplicates
+            const exists = prev.some(msg => msg.id === newMessage.id);
+            if (exists) {
+              console.log("Message already exists in state, skipping");
+              return prev;
+            }
+            
+            console.log("Adding new message to state:", newMessage);
+            return [...prev, {
+              id: newMessage.id,
+              orderId: newMessage.order_id,
+              senderId: newMessage.sender_id,
+              senderName: newMessage.sender_name,
+              senderRole: newMessage.sender_role as "business" | "driver",
+              text: newMessage.text,
+              createdAt: new Date(newMessage.created_at),
+            }];
+          });
         }
       )
       .subscribe((status) => {
@@ -143,7 +161,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
         console.log(`Loaded ${data.length} messages for order ${orderId}`);
         const orderSpecificMessages: Message[] = data.map(item => ({
           id: item.id,
@@ -160,6 +178,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...prev.filter(msg => msg.orderId !== orderId),
           ...orderSpecificMessages
         ]);
+      } else {
+        console.log(`No messages found for order ${orderId}`);
       }
     } catch (error: any) {
       console.error("Error loading messages for order:", error.message);
@@ -176,15 +196,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log(`Sending message to order ${orderId}: ${text}`);
       
-      // Create a new message object
-      const messageData = {
-        order_id: orderId,
-        sender_id: user.id,
-        sender_name: user.name,
-        sender_role: user.role,
-        text: text.trim()
-      };
-
       // Add message to local state immediately for better UX
       const tempId = `temp-${Date.now()}`;
       const optimisticMessage: Message = {
@@ -197,6 +208,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date(),
       };
       
+      // Add optimistic update
       setMessages(prev => [...prev, optimisticMessage]);
 
       // Use the dedicated function to send message to Supabase

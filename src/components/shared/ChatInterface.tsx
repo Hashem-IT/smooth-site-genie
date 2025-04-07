@@ -15,7 +15,7 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => {
-  const { orderMessages, sendMessage } = useChat();
+  const { orderMessages, sendMessage, loadMessages } = useChat();
   const { user } = useAuth();
   const { orders, markOrderDelivered } = useOrders();
   const [message, setMessage] = useState("");
@@ -25,6 +25,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   
   const allMessages = orderMessages(orderId);
   const order = orders.find(o => o.id === orderId);
+  
+  // Load messages when the component mounts or when orderId/partnerId changes
+  useEffect(() => {
+    if (orderId) {
+      console.log(`Loading messages for order ${orderId}`);
+      loadMessages(orderId);
+    }
+  }, [orderId, partnerId, loadMessages]);
   
   // Allow all drivers to chat with any order, regardless of booking status
   const canChat = !!user && !!order && (
