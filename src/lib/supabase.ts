@@ -1,14 +1,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
-
-// Import the supabase client from integrations
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
 
-// Export the client for backward compatibility
+// Export the client for consistency across the app
 export const supabase = supabaseClient;
 
-// Add helper function to check connection with timeout and retry logic
+// Helper function to check connection with timeout and retry logic
 export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => {
   let attempts = 0;
   
@@ -16,7 +14,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
     try {
       console.log(`Attempt ${attempts + 1} to check Supabase connection...`);
       
-      // Set a timeout for the query to prevent hanging
+      // Set a timeout for the query
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
@@ -38,9 +36,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       console.log('Supabase connection successful!');
       
       // Enable realtime for messages table
-      supabase.channel('public:messages').subscribe((status) => {
-        console.log('Realtime subscription status for messages:', status);
-      });
+      await enableRealtimeForMessages();
       
       return true;
     } catch (error) {
@@ -58,4 +54,25 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
   }
   
   return false;
+};
+
+// Enable realtime specifically for the messages table
+const enableRealtimeForMessages = async () => {
+  try {
+    const channel = supabase.channel('public:messages');
+    channel.on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      console.log('Realtime message update received:', payload);
+    }).subscribe((status) => {
+      console.log('Realtime subscription status for messages:', status);
+    });
+    
+    return channel;
+  } catch (error) {
+    console.error('Error setting up realtime for messages:', error);
+    return null;
+  }
 };

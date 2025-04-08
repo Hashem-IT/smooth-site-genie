@@ -5,12 +5,12 @@ import { useChat } from "@/context/ChatContext";
 import { useOrders } from "@/context/OrderContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { MessageSquare, User } from "lucide-react";
 
 const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const { user } = useAuth();
-  const { messages, orderMessages } = useChat();
+  const { messages, orderMessages, loadMessages } = useChat();
   const { orders } = useOrders();
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -19,11 +19,22 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const order = orders.find(o => o.id === orderId);
   const orderSpecificMessages = orderMessages(orderId);
   
-  console.log(`BusinessChatList for order ${orderId}:`, {
-    order,
-    messages: messages.length,
-    orderSpecificMessages: orderSpecificMessages.length
-  });
+  // Load messages when the component mounts
+  useEffect(() => {
+    if (orderId) {
+      console.log(`BusinessChatList: Loading messages for order ${orderId}`);
+      loadMessages(orderId);
+    }
+  }, [orderId, loadMessages]);
+  
+  // Update debug info
+  useEffect(() => {
+    console.log(`BusinessChatList for order ${orderId}:`, {
+      order,
+      messages: messages.length,
+      orderSpecificMessages: orderSpecificMessages.length
+    });
+  }, [order, messages, orderSpecificMessages, orderId]);
 
   // Track when a chat was last opened for each driver
   useEffect(() => {
@@ -57,6 +68,7 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   };
 
   const openChat = (driverId: string) => {
+    console.log(`Opening chat with driver ${driverId}`);
     setSelectedDriverId(driverId);
     setIsChatOpen(true);
     setLastReadTimes(prev => ({

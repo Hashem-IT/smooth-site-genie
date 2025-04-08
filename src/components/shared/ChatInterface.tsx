@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Send, Loader2, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ChatInterfaceProps {
   orderId: string;
@@ -26,12 +27,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   const allMessages = orderMessages(orderId);
   const order = orders.find(o => o.id === orderId);
   
-  // Load messages when the component mounts or when orderId/partnerId changes
+  // Load messages when the component mounts or orderId/partnerId changes
   useEffect(() => {
     if (orderId) {
-      console.log(`Loading messages for order ${orderId}, partnerId: ${partnerId || 'none'}`);
+      console.log(`ChatInterface: Loading messages for order ${orderId}, partnerId: ${partnerId || 'none'}`);
       loadMessages(orderId);
     }
+    
+    // Set up interval to refresh messages
+    const refreshInterval = setInterval(() => {
+      if (orderId) {
+        console.log(`ChatInterface: Refreshing messages for order ${orderId}`);
+        loadMessages(orderId);
+      }
+    }, 10000); // Refresh every 10 seconds
+    
+    return () => clearInterval(refreshInterval);
   }, [orderId, partnerId, loadMessages]);
   
   // Allow all drivers to chat with any order, regardless of booking status
@@ -40,7 +51,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     (user.role === "driver")
   );
 
-  // Get the current chat partner (for business it's the driver, for driver it's the business)
+  // Get the current chat partner
   const chatPartner = user?.role === "business" 
     ? (partnerId ? orders.find(o => o.driverId === partnerId)?.driverName || "Driver" : order?.driverName) || "Interested Driver" 
     : order?.businessName || "Business";
@@ -52,12 +63,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       return msg.senderId === user.id || msg.senderId === partnerId;
     } 
     else if (user?.role === "driver") {
-      // Driver - show messages between them and the business
+      // Driver - show all messages for this order
       return true;
     }
     // Fallback - show all messages for this order
     return true;
   });
+  
+  // Debug information
+  useEffect(() => {
+    console.log("ChatInterface filtered messages:", {
+      orderId,
+      partnerId,
+      userRole: user?.role,
+      allMessagesCount: allMessages.length,
+      filteredMessagesCount: filteredMessages.length
+    });
+  }, [allMessages, filteredMessages, orderId, partnerId, user?.role]);
   
   useEffect(() => {
     // Scroll to bottom whenever messages change
@@ -72,9 +94,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     
     try {
       setSending(true);
-      console.log("Sending message:", message);
-      console.log("Order ID:", orderId);
-      console.log("Partner ID:", partnerId);
+      console.log("Sending message:", {
+        orderId,
+        message,
+        partnerId: partnerId || "none"
+      });
       
       // Save the message text before clearing the input
       const messageText = message;
@@ -82,8 +106,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       // Clear the message input immediately for better UX
       setMessage("");
       
-      // Make sure to pass the orderId and message
+      // Send the message
       await sendMessage(orderId, messageText, partnerId);
+      
+      // Force reload messages after sending
+      setTimeout(() => loadMessages(orderId), 500);
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({
@@ -126,11 +153,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       </div>
     );
   }
-  
-  // Debug information 
-  console.log("Current user role:", user?.role);
-  console.log("Available messages for this order:", allMessages.length);
-  console.log("Filtered messages:", filteredMessages.length);
   
   return (
     <div className="flex flex-col h-[400px] max-h-[400px]">
@@ -178,7 +200,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="text-sm">{msg.text}</p>
+                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                   </div>
                 </div>
               );
@@ -188,16 +210,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
         </div>
       </ScrollArea>
       
-      <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-2 border-t">
-        <Input
+      <form onSubmit={handleSendMessage} className="flex flex-col gap-2 p-2 border-t">
+        <Textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
-          className="flex-1"
+          className="min-h-[80px] resize-none"
           disabled={sending}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+              handleSendMessage(e);
+            }
+          }}
         />
-        <Button type="submit" size="icon" disabled={!message.trim() || sending}>
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={!message.trim() || sending}
+        >
+          {sending ? 
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : 
+            <><Send className="h-4 w-4 mr-2" /> Send Message</>
+          }
         </Button>
       </form>
     </div>

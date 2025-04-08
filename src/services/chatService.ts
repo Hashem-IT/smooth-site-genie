@@ -8,14 +8,17 @@ import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "easydrop-messages";
 
+// Load messages from local storage (fallback only)
 export const loadMessages = (): Message[] => {
   return getFromStorage<Message[]>(STORAGE_KEY, MOCK_MESSAGES);
 };
 
+// Save messages to local storage (for offline support)
 export const saveMessages = (messages: Message[]): void => {
   saveToStorage(STORAGE_KEY, messages);
 };
 
+// Create a new message object
 export const createNewMessage = (
   user: User | null,
   orderId: string,
@@ -50,6 +53,7 @@ export const createNewMessage = (
   };
 };
 
+// Send message to Supabase database
 export const sendMessageToSupabase = async (
   orderId: string,
   senderId: string,
@@ -66,23 +70,64 @@ export const sendMessageToSupabase = async (
       text: text.trim()
     });
     
-    const { error } = await supabase.from('messages').insert({
-      order_id: orderId,
-      sender_id: senderId,
-      sender_name: senderName,
-      sender_role: senderRole,
-      text: text.trim()
-    });
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        order_id: orderId,
+        sender_id: senderId,
+        sender_name: senderName,
+        sender_role: senderRole,
+        text: text.trim()
+      })
+      .select();
 
     if (error) {
       console.error("Error sending message to Supabase:", error);
       return false;
     }
     
-    console.log("Message successfully sent to Supabase");
+    console.log("Message successfully sent to Supabase:", data);
     return true;
   } catch (error) {
     console.error("Exception sending message:", error);
     return false;
+  }
+};
+
+// Load messages for a specific order from Supabase
+export const loadMessagesFromSupabase = async (orderId?: string): Promise<Message[]> => {
+  try {
+    let query = supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    // If orderId is provided, filter by it
+    if (orderId) {
+      query = query.eq('order_id', orderId);
+    }
+    
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error loading messages from Supabase:", error);
+      return [];
+    }
+    
+    console.log(`Loaded ${data?.length || 0} messages from Supabase${orderId ? ` for order ${orderId}` : ''}`);
+    
+    // Convert from Supabase format to app format
+    return (data || []).map(item => ({
+      id: item.id,
+      orderId: item.order_id,
+      senderId: item.sender_id,
+      senderName: item.sender_name,
+      senderRole: item.sender_role as UserRole,
+      text: item.text,
+      createdAt: new Date(item.created_at),
+    }));
+  } catch (error) {
+    console.error("Exception loading messages from Supabase:", error);
+    return [];
   }
 };
