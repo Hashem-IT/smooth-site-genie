@@ -18,6 +18,12 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
 
   const order = orders.find(o => o.id === orderId);
   const orderSpecificMessages = orderMessages(orderId);
+  
+  console.log(`BusinessChatList for order ${orderId}:`, {
+    order,
+    messages: messages.length,
+    orderSpecificMessages: orderSpecificMessages.length
+  });
 
   // Track when a chat was last opened for each driver
   useEffect(() => {
@@ -35,6 +41,8 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
       .filter(msg => msg.senderRole === "driver")
       .map(msg => msg.senderId)
   ));
+  
+  console.log(`Found ${driverIds.length} unique drivers for order ${orderId}`);
 
   // Check if a driver has sent new messages since last read
   const hasNewMessages = (driverId: string): boolean => {
@@ -67,8 +75,7 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const getLatestMessage = (driverId: string) => {
     // Filter to get only messages between this specific driver and the business
     const driverMessages = orderSpecificMessages.filter(
-      msg => (msg.senderId === driverId || msg.senderId === user?.id) &&
-             (msg.senderId === driverId || msg.senderId === user?.id)
+      msg => msg.senderId === driverId || msg.senderId === user?.id
     );
     
     if (driverMessages.length === 0) return null;
@@ -79,10 +86,19 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
     )[0];
   };
 
-  if (!order || !user || user.role !== "business" || driverIds.length === 0) {
+  if (!order || !user || user.role !== "business") {
     return (
       <div className="text-center p-4 text-muted-foreground">
         No chat messages for this order yet.
+      </div>
+    );
+  }
+
+  // If there are no driver messages, display a message
+  if (driverIds.length === 0) {
+    return (
+      <div className="text-center p-4 text-muted-foreground">
+        No drivers have sent messages for this order yet.
       </div>
     );
   }

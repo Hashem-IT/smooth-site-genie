@@ -18,7 +18,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       
       // Set a timeout for the query to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -31,7 +31,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
         console.error('Supabase connection check failed:', error.message);
         attempts++;
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Increased wait time
+        await new Promise(resolve => setTimeout(resolve, 1500));
         continue;
       }
       
@@ -53,7 +53,7 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       }
       
       // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Increased wait time
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
   

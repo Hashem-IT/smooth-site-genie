@@ -78,8 +78,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Set up realtime subscription for messages
   const setupMessageSubscription = () => {
     console.log("Setting up message subscription");
+    
+    // Create a specific channel for messages updates
     const channel = supabase
-      .channel('messages_changes')
+      .channel('public:messages')
       .on(
         'postgres_changes',
         { 
@@ -88,7 +90,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           table: 'messages'
         },
         (payload: any) => {
-          console.log("New message received:", payload);
+          console.log("New message received via realtime:", payload);
           const newMessage = payload.new;
           
           if (!newMessage) {
@@ -96,6 +98,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
+          // Add the new message to our state
           setMessages(prev => {
             // Check if message already exists to prevent duplicates
             const exists = prev.some(msg => msg.id === newMessage.id);
@@ -118,9 +121,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       )
       .subscribe((status) => {
-        console.log("Subscription status:", status);
+        console.log("Realtime subscription status:", status);
       });
       
+    // Return cleanup function
     return () => {
       console.log("Removing message subscription");
       supabase.removeChannel(channel);
@@ -223,11 +227,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!success) {
         // Remove the optimistic message on failure
         setMessages(prev => prev.filter(msg => msg.id !== tempId));
-        throw new Error("Failed to send message");
+        toast({
+          title: "Message not sent",
+          description: "There was a problem sending your message. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        console.log("Message sent successfully");
+        // The real message will come through the subscription
       }
-
-      console.log("Message sent successfully");
-      // The real message will come through the subscription
       
     } catch (error: any) {
       console.error("Error sending message:", error.message);

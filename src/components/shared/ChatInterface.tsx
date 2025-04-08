@@ -29,7 +29,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   // Load messages when the component mounts or when orderId/partnerId changes
   useEffect(() => {
     if (orderId) {
-      console.log(`Loading messages for order ${orderId}`);
+      console.log(`Loading messages for order ${orderId}, partnerId: ${partnerId || 'none'}`);
       loadMessages(orderId);
     }
   }, [orderId, partnerId, loadMessages]);
@@ -45,16 +45,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     ? (partnerId ? orders.find(o => o.driverId === partnerId)?.driverName || "Driver" : order?.driverName) || "Interested Driver" 
     : order?.businessName || "Business";
 
-  // For business users, we need to filter messages by the specific driver if provided
-  // For drivers, we filter messages between them and the business
+  // Filter messages appropriately based on user role and partnerId
   const filteredMessages = allMessages.filter(msg => {
     if (user?.role === "business" && partnerId) {
       // Business user with specific driver selected - show only messages between them
       return msg.senderId === user.id || msg.senderId === partnerId;
     } 
     else if (user?.role === "driver") {
-      // Driver - show only messages between them and the business
-      return msg.senderId === user.id || msg.senderId === order?.businessId;
+      // Driver - show messages between them and the business
+      return true;
     }
     // Fallback - show all messages for this order
     return true;
@@ -127,6 +126,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       </div>
     );
   }
+  
+  // Debug information 
+  console.log("Current user role:", user?.role);
+  console.log("Available messages for this order:", allMessages.length);
+  console.log("Filtered messages:", filteredMessages.length);
   
   return (
     <div className="flex flex-col h-[400px] max-h-[400px]">
