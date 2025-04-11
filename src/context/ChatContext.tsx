@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
@@ -23,6 +24,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Set up realtime subscription for messages
   useEffect(() => {
     if (!user) {
+      console.log("No user logged in, clearing messages");
       setMessages([]);
       return;
     }
@@ -31,14 +33,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Initial load of all messages
     const loadAllMessagesData = async () => {
-      const loadedMessages = await loadMessagesFromSupabase();
-      setMessages(loadedMessages);
-      console.log(`Loaded ${loadedMessages.length} messages initially`);
+      try {
+        const loadedMessages = await loadMessagesFromSupabase();
+        setMessages(loadedMessages);
+        console.log(`Loaded ${loadedMessages.length} messages initially`);
+      } catch (error) {
+        console.error("Error loading initial messages:", error);
+      }
     };
     
     loadAllMessagesData();
     
-    // Set up realtime subscription
+    // Set up realtime subscription with better error handling
     const channel = supabase
       .channel('chat-messages')
       .on(
@@ -82,6 +88,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .subscribe((status) => {
         console.log("Realtime subscription status:", status);
         setIsSubscribed(status === 'SUBSCRIBED');
+        
+        if (status === 'CHANNEL_ERROR') {
+          console.error("Error with realtime channel. Will try to reload messages manually.");
+          // If channel error, set up periodic refresh
+          const intervalId = setInterval(() => {
+            if (user) {
+              console.log("Manually refreshing messages due to channel error");
+              loadAllMessagesData();
+            } else {
+              clearInterval(intervalId);
+            }
+          }, 10000);
+          
+          // Clean up interval on component unmount
+          return () => clearInterval(intervalId);
+        }
       });
       
     // Return cleanup function
@@ -135,6 +157,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Could not load chat messages. Please try again.",
         variant: "destructive",
       });
+      throw error; // Re-throw so caller can handle if needed
     }
   };
 
@@ -142,6 +165,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendMessage = async (orderId: string, text: string, partnerId?: string) => {
     if (!user || !text.trim() || !orderId) {
       console.log("Cannot send message: missing user, text, or orderId");
+      toast({
+        title: "Cannot send message",
+        description: "Missing required information to send message.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -196,6 +224,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "There was a problem sending your message. Please try again.",
         variant: "destructive",
       });
+      throw error; // Re-throw so caller can handle if needed
     }
   };
 

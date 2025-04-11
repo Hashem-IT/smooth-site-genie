@@ -22,6 +22,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [lastRead, setLastRead] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const allMessages = orderMessages(orderId);
@@ -38,7 +39,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     const refreshInterval = setInterval(() => {
       if (orderId) {
         console.log(`ChatInterface: Refreshing messages for order ${orderId}`);
-        loadMessages(orderId);
+        setRefreshing(true);
+        loadMessages(orderId).finally(() => {
+          setRefreshing(false);
+        });
       }
     }, 10000); // Refresh every 10 seconds
     
@@ -109,8 +113,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       // Send the message
       await sendMessage(orderId, messageText, partnerId);
       
-      // Force reload messages after sending
-      setTimeout(() => loadMessages(orderId), 500);
+      // Manual refresh to ensure the message appears
+      setTimeout(() => {
+        console.log("Manual refresh after sending message");
+        loadMessages(orderId);
+      }, 1000);
+      
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({
@@ -140,6 +148,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
         title: "Update failed",
         description: "Could not update the order status.",
         variant: "destructive"
+      });
+    }
+  };
+  
+  const handleManualRefresh = () => {
+    if (orderId && !refreshing) {
+      setRefreshing(true);
+      loadMessages(orderId).finally(() => {
+        setRefreshing(false);
       });
     }
   };
@@ -223,16 +240,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
             }
           }}
         />
-        <Button 
-          type="submit" 
-          className="w-full" 
-          disabled={!message.trim() || sending}
-        >
-          {sending ? 
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : 
-            <><Send className="h-4 w-4 mr-2" /> Send Message</>
-          }
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="w-1/4"
+          >
+            {refreshing ? 
+              <Loader2 className="h-4 w-4 animate-spin" /> : 
+              "Refresh"
+            }
+          </Button>
+          <Button 
+            type="submit" 
+            className="w-3/4" 
+            disabled={!message.trim() || sending}
+          >
+            {sending ? 
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : 
+              <><Send className="h-4 w-4 mr-2" /> Send Message</>
+            }
+          </Button>
+        </div>
       </form>
     </div>
   );

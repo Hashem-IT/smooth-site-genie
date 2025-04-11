@@ -6,7 +6,9 @@ import { useOrders } from "@/context/OrderContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, User } from "lucide-react";
+import { MessageSquare, User, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const { user } = useAuth();
@@ -15,6 +17,7 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const order = orders.find(o => o.id === orderId);
   const orderSpecificMessages = orderMessages(orderId);
@@ -25,7 +28,39 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
       console.log(`BusinessChatList: Loading messages for order ${orderId}`);
       loadMessages(orderId);
     }
+    
+    // Refresh messages periodically
+    const refreshInterval = setInterval(() => {
+      if (orderId) {
+        console.log(`BusinessChatList: Auto-refreshing messages for order ${orderId}`);
+        loadMessages(orderId);
+      }
+    }, 15000); // Refresh every 15 seconds
+    
+    return () => clearInterval(refreshInterval);
   }, [orderId, loadMessages]);
+  
+  // Manual refresh function
+  const handleRefresh = () => {
+    if (orderId && !isRefreshing) {
+      setIsRefreshing(true);
+      console.log(`BusinessChatList: Manually refreshing messages for order ${orderId}`);
+      
+      loadMessages(orderId)
+        .then(() => {
+          toast({
+            title: "Messages refreshed",
+            description: "Latest messages have been loaded",
+          });
+        })
+        .catch((error) => {
+          console.error("Error refreshing messages:", error);
+        })
+        .finally(() => {
+          setIsRefreshing(false);
+        });
+    }
+  };
   
   // Update debug info
   useEffect(() => {
@@ -109,14 +144,40 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   // If there are no driver messages, display a message
   if (driverIds.length === 0) {
     return (
-      <div className="text-center p-4 text-muted-foreground">
-        No drivers have sent messages for this order yet.
+      <div className="text-center p-4 space-y-4">
+        <p className="text-muted-foreground">
+          No drivers have sent messages for this order yet.
+        </p>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh Messages'}
+        </Button>
       </div>
     );
   }
 
   return (
     <div>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-sm font-medium">Driver Messages</h3>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
+      
       <div className="space-y-2 mt-2">
         {driverIds.map(driverId => {
           const driverName = getDriverName(driverId);

@@ -70,6 +70,7 @@ export const sendMessageToSupabase = async (
       text: text.trim()
     });
     
+    // Added more detailed logging and error handling
     const { data, error } = await supabase
       .from('messages')
       .insert({
@@ -83,6 +84,11 @@ export const sendMessageToSupabase = async (
 
     if (error) {
       console.error("Error sending message to Supabase:", error);
+      toast({
+        title: "Message not sent",
+        description: `Error: ${error.message}. Please try again.`,
+        variant: "destructive",
+      });
       return false;
     }
     
@@ -90,6 +96,11 @@ export const sendMessageToSupabase = async (
     return true;
   } catch (error) {
     console.error("Exception sending message:", error);
+    toast({
+      title: "Message not sent",
+      description: "An unexpected error occurred. Please try again.",
+      variant: "destructive",
+    });
     return false;
   }
 };
@@ -97,6 +108,8 @@ export const sendMessageToSupabase = async (
 // Load messages for a specific order from Supabase
 export const loadMessagesFromSupabase = async (orderId?: string): Promise<Message[]> => {
   try {
+    console.log(`Attempting to load messages ${orderId ? `for order ${orderId}` : 'for all orders'}`);
+    
     let query = supabase
       .from('messages')
       .select('*')
@@ -111,6 +124,11 @@ export const loadMessagesFromSupabase = async (orderId?: string): Promise<Messag
 
     if (error) {
       console.error("Error loading messages from Supabase:", error);
+      toast({
+        title: "Error loading messages",
+        description: `Could not load chat messages: ${error.message}`,
+        variant: "destructive",
+      });
       return [];
     }
     
@@ -128,6 +146,11 @@ export const loadMessagesFromSupabase = async (orderId?: string): Promise<Messag
     }));
   } catch (error) {
     console.error("Exception loading messages from Supabase:", error);
+    toast({
+      title: "Error loading messages",
+      description: "An unexpected error occurred while loading messages.",
+      variant: "destructive",
+    });
     return [];
   }
 };
