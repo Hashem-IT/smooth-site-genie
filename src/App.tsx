@@ -24,6 +24,7 @@ function App() {
   return (
     <AuthProvider>
       <OrderProvider>
+        {/* ChatProvider remains for compatibility but has no functionality */}
         <ChatProvider>
           <Routes>
             <Route path="/" element={<Index />} />
