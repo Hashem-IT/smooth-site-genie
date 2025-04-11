@@ -18,9 +18,9 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
-      // Changed to use messages table instead of profiles as there might be permission issues
+      // Using profiles table which we have permission to access
       const { data, error } = await supabase
-        .from('messages')
+        .from('profiles')
         .select('count', { count: 'exact', head: true })
         .abortSignal(controller.signal);
       
