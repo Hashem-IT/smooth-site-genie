@@ -6,18 +6,17 @@ import { useOrders } from "@/context/OrderContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, User, RefreshCw } from "lucide-react";
+import { MessageSquare, User, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
 const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const { user } = useAuth();
-  const { messages, orderMessages, loadMessages } = useChat();
+  const { messages, orderMessages, loadMessages, isRefreshing } = useChat();
   const { orders } = useOrders();
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const order = orders.find(o => o.id === orderId);
   const orderSpecificMessages = orderMessages(orderId);
@@ -26,16 +25,20 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   useEffect(() => {
     if (orderId) {
       console.log(`BusinessChatList: Loading messages for order ${orderId}`);
-      loadMessages(orderId);
+      loadMessages(orderId).catch(error => {
+        console.error("Error loading initial messages:", error);
+      });
     }
     
-    // Refresh messages periodically
+    // Refresh messages periodically (reduced frequency to every 30 seconds)
     const refreshInterval = setInterval(() => {
       if (orderId) {
         console.log(`BusinessChatList: Auto-refreshing messages for order ${orderId}`);
-        loadMessages(orderId);
+        loadMessages(orderId).catch(error => {
+          console.error("Error during auto-refresh:", error);
+        });
       }
-    }, 15000); // Refresh every 15 seconds
+    }, 30000); // Refresh every 30 seconds (increased from 15s to reduce load)
     
     return () => clearInterval(refreshInterval);
   }, [orderId, loadMessages]);
@@ -43,7 +46,6 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   // Manual refresh function
   const handleRefresh = () => {
     if (orderId && !isRefreshing) {
-      setIsRefreshing(true);
       console.log(`BusinessChatList: Manually refreshing messages for order ${orderId}`);
       
       loadMessages(orderId)
@@ -55,22 +57,15 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
         })
         .catch((error) => {
           console.error("Error refreshing messages:", error);
-        })
-        .finally(() => {
-          setIsRefreshing(false);
+          toast({
+            title: "Refresh failed",
+            description: "Could not refresh messages. Please try again.",
+            variant: "destructive",
+          });
         });
     }
   };
   
-  // Update debug info
-  useEffect(() => {
-    console.log(`BusinessChatList for order ${orderId}:`, {
-      order,
-      messages: messages.length,
-      orderSpecificMessages: orderSpecificMessages.length
-    });
-  }, [order, messages, orderSpecificMessages, orderId]);
-
   // Track when a chat was last opened for each driver
   useEffect(() => {
     if (selectedDriverId && isChatOpen) {
@@ -145,9 +140,16 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   if (driverIds.length === 0) {
     return (
       <div className="text-center p-4 space-y-4">
-        <p className="text-muted-foreground">
-          No drivers have sent messages for this order yet.
-        </p>
+        {isRefreshing ? (
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading messages...</p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            No drivers have sent messages for this order yet.
+          </p>
+        )}
         <Button 
           size="sm" 
           variant="outline" 

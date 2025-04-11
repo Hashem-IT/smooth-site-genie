@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useOrders } from "@/context/OrderContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, Trash2 } from "lucide-react";
+import { Send, Loader2, Trash2, RefreshCw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,13 +16,12 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => {
-  const { orderMessages, sendMessage, loadMessages } = useChat();
+  const { orderMessages, sendMessage, loadMessages, isRefreshing } = useChat();
   const { user } = useAuth();
   const { orders, markOrderDelivered } = useOrders();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [lastRead, setLastRead] = useState(new Date());
-  const [refreshing, setRefreshing] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const allMessages = orderMessages(orderId);
@@ -32,19 +31,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   useEffect(() => {
     if (orderId) {
       console.log(`ChatInterface: Loading messages for order ${orderId}, partnerId: ${partnerId || 'none'}`);
-      loadMessages(orderId);
+      loadMessages(orderId).catch(err => {
+        console.error("Failed to load initial messages:", err);
+      });
     }
     
     // Set up interval to refresh messages
     const refreshInterval = setInterval(() => {
       if (orderId) {
         console.log(`ChatInterface: Refreshing messages for order ${orderId}`);
-        setRefreshing(true);
-        loadMessages(orderId).finally(() => {
-          setRefreshing(false);
+        loadMessages(orderId).catch(err => {
+          console.error("Failed to refresh messages:", err);
         });
       }
-    }, 10000); // Refresh every 10 seconds
+    }, 15000); // Refresh every 15 seconds instead of 10 to reduce load
     
     return () => clearInterval(refreshInterval);
   }, [orderId, partnerId, loadMessages]);
@@ -113,12 +113,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
       // Send the message
       await sendMessage(orderId, messageText, partnerId);
       
-      // Manual refresh to ensure the message appears
-      setTimeout(() => {
-        console.log("Manual refresh after sending message");
-        loadMessages(orderId);
-      }, 1000);
-      
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({
@@ -153,10 +147,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   };
   
   const handleManualRefresh = () => {
-    if (orderId && !refreshing) {
-      setRefreshing(true);
-      loadMessages(orderId).finally(() => {
-        setRefreshing(false);
+    if (orderId) {
+      loadMessages(orderId);
+      toast({
+        title: "Refreshing messages",
+        description: "Loading the latest messages...",
       });
     }
   };
@@ -193,7 +188,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
         <div className="space-y-4">
           {filteredMessages.length === 0 ? (
             <div className="text-center text-muted-foreground p-4">
-              No messages yet. Start the conversation!
+              {isRefreshing ? 
+                "Loading messages..." : 
+                "No messages yet. Start the conversation!"}
             </div>
           ) : (
             filteredMessages.map((msg) => {
@@ -233,7 +230,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
           className="min-h-[80px] resize-none"
-          disabled={sending}
+          disabled={sending || isRefreshing}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.ctrlKey) {
               handleSendMessage(e);
@@ -246,18 +243,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
             variant="outline"
             size="sm"
             onClick={handleManualRefresh}
-            disabled={refreshing}
+            disabled={isRefreshing}
             className="w-1/4"
           >
-            {refreshing ? 
+            {isRefreshing ? 
               <Loader2 className="h-4 w-4 animate-spin" /> : 
-              "Refresh"
+              <RefreshCw className="h-4 w-4" />
             }
           </Button>
           <Button 
             type="submit" 
             className="w-3/4" 
-            disabled={!message.trim() || sending}
+            disabled={!message.trim() || sending || isRefreshing}
           >
             {sending ? 
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : 
@@ -265,6 +262,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
             }
           </Button>
         </div>
+        {isRefreshing && (
+          <p className="text-xs text-center text-muted-foreground">
+            Loading messages, please wait...
+          </p>
+        )}
       </form>
     </div>
   );

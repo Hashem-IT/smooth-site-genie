@@ -12,6 +12,7 @@ interface ChatContextType {
   loadMessages: (orderId: string) => Promise<void>;
   orderMessages: (orderId: string) => Message[];
   hasNewMessages: (orderId: string, lastReadTime?: Date) => boolean;
+  isRefreshing: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -19,8 +20,9 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
-
+  
   // Set up realtime subscription for messages
   useEffect(() => {
     if (!user) {
@@ -34,11 +36,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initial load of all messages
     const loadAllMessagesData = async () => {
       try {
+        if (isRefreshing) return; // Prevent multiple simultaneous requests
+        
+        setIsRefreshing(true);
         const loadedMessages = await loadMessagesFromSupabase();
         setMessages(loadedMessages);
         console.log(`Loaded ${loadedMessages.length} messages initially`);
       } catch (error) {
         console.error("Error loading initial messages:", error);
+      } finally {
+        setIsRefreshing(false);
       }
     };
     
@@ -91,18 +98,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (status === 'CHANNEL_ERROR') {
           console.error("Error with realtime channel. Will try to reload messages manually.");
-          // If channel error, set up periodic refresh
-          const intervalId = setInterval(() => {
-            if (user) {
-              console.log("Manually refreshing messages due to channel error");
-              loadAllMessagesData();
-            } else {
-              clearInterval(intervalId);
-            }
-          }, 10000);
-          
-          // Clean up interval on component unmount
-          return () => clearInterval(intervalId);
+          toast({
+            title: "Realtime connection error",
+            description: "You may need to refresh the page to see new messages",
+            variant: "destructive",
+          });
         }
       });
       
@@ -138,8 +138,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    if (isRefreshing) {
+      console.log("Already refreshing messages, skipping this request");
+      return;
+    }
+
     try {
       console.log(`Loading messages for order ${orderId}`);
+      setIsRefreshing(true);
       
       const orderSpecificMessages = await loadMessagesFromSupabase(orderId);
       
@@ -157,7 +163,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Could not load chat messages. Please try again.",
         variant: "destructive",
       });
-      throw error; // Re-throw so caller can handle if needed
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -203,11 +210,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!success) {
         // Remove the optimistic message on failure
         setMessages(prev => prev.filter(msg => msg.id !== tempId));
-        toast({
-          title: "Message not sent",
-          description: "There was a problem sending your message. Please try again.",
-          variant: "destructive",
-        });
       } else {
         console.log("Message sent successfully to Supabase");
         
@@ -224,7 +226,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "There was a problem sending your message. Please try again.",
         variant: "destructive",
       });
-      throw error; // Re-throw so caller can handle if needed
     }
   };
 
@@ -236,6 +237,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadMessages,
         orderMessages,
         hasNewMessages,
+        isRefreshing,
       }}
     >
       {children}
