@@ -9,6 +9,7 @@ import { Send, Loader2, Trash2, RefreshCw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ChatInterfaceProps {
   orderId: string;
@@ -22,6 +23,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [lastRead, setLastRead] = useState(new Date());
+  const [error, setError] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const allMessages = orderMessages(orderId);
@@ -29,27 +32,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   
   // Load messages when the component mounts or orderId/partnerId changes
   useEffect(() => {
+    let isMounted = true;
+    setIsLoaded(false);
+    setError("");
+    
     if (orderId) {
       console.log(`ChatInterface: Loading messages for order ${orderId}, partnerId: ${partnerId || 'none'}`);
-      loadMessages(orderId).catch(err => {
-        console.error("Failed to load initial messages:", err);
-      });
+      loadMessages(orderId)
+        .then(() => {
+          if (isMounted) {
+            setIsLoaded(true);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to load messages:", err);
+          if (isMounted) {
+            setError("Failed to load messages. Please try refreshing.");
+            setIsLoaded(true);
+          }
+        });
     }
     
-    // Set up interval to refresh messages
-    const refreshInterval = setInterval(() => {
-      if (orderId) {
-        console.log(`ChatInterface: Refreshing messages for order ${orderId}`);
-        loadMessages(orderId).catch(err => {
-          console.error("Failed to refresh messages:", err);
-        });
-      }
-    }, 15000); // Refresh every 15 seconds instead of 10 to reduce load
-    
-    return () => clearInterval(refreshInterval);
+    return () => {
+      isMounted = false;
+    };
   }, [orderId, partnerId, loadMessages]);
   
-  // Allow all drivers to chat with any order, regardless of booking status
+  // Can send messages if user is logged in and order exists
   const canChat = !!user && !!order && (
     (user.role === "business" && order.businessId === user.id) ||
     (user.role === "driver")
@@ -73,17 +82,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
     // Fallback - show all messages for this order
     return true;
   });
-  
-  // Debug information
-  useEffect(() => {
-    console.log("ChatInterface filtered messages:", {
-      orderId,
-      partnerId,
-      userRole: user?.role,
-      allMessagesCount: allMessages.length,
-      filteredMessagesCount: filteredMessages.length
-    });
-  }, [allMessages, filteredMessages, orderId, partnerId, user?.role]);
   
   useEffect(() => {
     // Scroll to bottom whenever messages change
@@ -148,11 +146,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
   
   const handleManualRefresh = () => {
     if (orderId) {
-      loadMessages(orderId);
-      toast({
-        title: "Refreshing messages",
-        description: "Loading the latest messages...",
-      });
+      setError("");
+      loadMessages(orderId)
+        .then(() => {
+          toast({
+            title: "Messages refreshed",
+            description: "Latest messages have been loaded",
+          });
+        })
+        .catch((error) => {
+          console.error("Error refreshing:", error);
+          setError("Failed to refresh messages");
+          toast({
+            title: "Refresh failed",
+            description: "Could not refresh messages. Please try again.",
+            variant: "destructive"
+          });
+        });
     }
   };
   
@@ -184,44 +194,73 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
           </Button>
         )}
       </div>
+      
       <ScrollArea className="flex-1 p-3">
-        <div className="space-y-4">
-          {filteredMessages.length === 0 ? (
-            <div className="text-center text-muted-foreground p-4">
-              {isRefreshing ? 
-                "Loading messages..." : 
-                "No messages yet. Start the conversation!"}
-            </div>
-          ) : (
-            filteredMessages.map((msg) => {
-              const isMyMessage = user?.id === msg.senderId;
-              
-              return (
-                <div 
-                  key={msg.id} 
-                  className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
-                >
-                  <div 
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                      isMyMessage 
-                        ? "bg-primary text-primary-foreground" 
-                        : "bg-muted text-foreground"
-                    }`}
-                  >
-                    <div className="text-xs mb-1">
-                      {!isMyMessage && <span className="font-semibold">{msg.senderName} </span>}
-                      <span className="text-xs opacity-70">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                  </div>
+        {!isLoaded && (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-start gap-2">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-[250px]" />
+                  <Skeleton className="h-4 w-[200px]" />
                 </div>
-              );
-            })
-          )}
-          <div ref={chatEndRef} />
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {error && (
+          <div className="p-4 text-center">
+            <p className="text-destructive">{error}</p>
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleManualRefresh}
+              className="mt-2"
+            >
+              Try Again
+            </Button>
+          </div>
+        )}
+        
+        {isLoaded && !error && (
+          <div className="space-y-4">
+            {filteredMessages.length === 0 ? (
+              <div className="text-center text-muted-foreground p-4">
+                No messages yet. Start the conversation!
+              </div>
+            ) : (
+              filteredMessages.map((msg) => {
+                const isMyMessage = user?.id === msg.senderId;
+                
+                return (
+                  <div 
+                    key={msg.id} 
+                    className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
+                  >
+                    <div 
+                      className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                        isMyMessage 
+                          ? "bg-primary text-primary-foreground" 
+                          : "bg-muted text-foreground"
+                      }`}
+                    >
+                      <div className="text-xs mb-1">
+                        {!isMyMessage && <span className="font-semibold">{msg.senderName} </span>}
+                        <span className="text-xs opacity-70">
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={chatEndRef} />
+          </div>
+        )}
       </ScrollArea>
       
       <form onSubmit={handleSendMessage} className="flex flex-col gap-2 p-2 border-t">
@@ -230,7 +269,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
           className="min-h-[80px] resize-none"
-          disabled={sending || isRefreshing}
+          disabled={sending || isRefreshing || !isLoaded || !!error}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.ctrlKey) {
               handleSendMessage(e);
@@ -254,7 +293,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
           <Button 
             type="submit" 
             className="w-3/4" 
-            disabled={!message.trim() || sending || isRefreshing}
+            disabled={!message.trim() || sending || isRefreshing || !isLoaded || !!error}
           >
             {sending ? 
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : 
@@ -262,11 +301,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ orderId, partnerId }) => 
             }
           </Button>
         </div>
-        {isRefreshing && (
-          <p className="text-xs text-center text-muted-foreground">
-            Loading messages, please wait...
-          </p>
-        )}
       </form>
     </div>
   );

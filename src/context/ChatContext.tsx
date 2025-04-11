@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
@@ -21,6 +20,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadedOrderIds, setLoadedOrderIds] = useState<Set<string>>(new Set());
   const { user } = useAuth();
   
   // Set up realtime subscription for messages
@@ -28,28 +28,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) {
       console.log("No user logged in, clearing messages");
       setMessages([]);
+      setLoadedOrderIds(new Set());
       return;
     }
 
     console.log("Setting up messages subscription in ChatContext");
     
-    // Initial load of all messages
-    const loadAllMessagesData = async () => {
-      try {
-        if (isRefreshing) return; // Prevent multiple simultaneous requests
-        
-        setIsRefreshing(true);
-        const loadedMessages = await loadMessagesFromSupabase();
-        setMessages(loadedMessages);
-        console.log(`Loaded ${loadedMessages.length} messages initially`);
-      } catch (error) {
-        console.error("Error loading initial messages:", error);
-      } finally {
-        setIsRefreshing(false);
-      }
-    };
-    
-    loadAllMessagesData();
+    // Initial load of all messages - removed to prevent permission issues
+    // We'll load messages only when explicitly requested
     
     // Set up realtime subscription with better error handling
     const channel = supabase
@@ -99,9 +85,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (status === 'CHANNEL_ERROR') {
           console.error("Error with realtime channel. Will try to reload messages manually.");
           toast({
-            title: "Realtime connection error",
-            description: "You may need to refresh the page to see new messages",
-            variant: "destructive",
+            title: "Realtime connection issue",
+            description: "Using manual refresh instead",
+            variant: "default",
           });
         }
       });
@@ -153,6 +139,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setMessages(prev => {
         const filteredMessages = prev.filter(msg => msg.orderId !== orderId);
         return [...filteredMessages, ...orderSpecificMessages];
+      });
+      
+      // Mark this order as loaded
+      setLoadedOrderIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(orderId);
+        return newSet;
       });
       
       console.log(`Loaded ${orderSpecificMessages.length} messages for order ${orderId}`);
@@ -210,6 +203,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!success) {
         // Remove the optimistic message on failure
         setMessages(prev => prev.filter(msg => msg.id !== tempId));
+        
+        toast({
+          title: "Message not sent",
+          description: "Could not send message. Please try again.",
+          variant: "destructive",
+        });
       } else {
         console.log("Message sent successfully to Supabase");
         

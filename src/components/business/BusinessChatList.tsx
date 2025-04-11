@@ -6,9 +6,10 @@ import { useOrders } from "@/context/OrderContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ChatInterface from "../shared/ChatInterface";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, User, RefreshCw, Loader2 } from "lucide-react";
+import { MessageSquare, User, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const { user } = useAuth();
@@ -17,35 +18,45 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
+  const [error, setError] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const order = orders.find(o => o.id === orderId);
   const orderSpecificMessages = orderMessages(orderId);
   
   // Load messages when the component mounts
   useEffect(() => {
+    let isMounted = true;
+    
     if (orderId) {
+      setIsLoaded(false);
+      setError("");
       console.log(`BusinessChatList: Loading messages for order ${orderId}`);
-      loadMessages(orderId).catch(error => {
-        console.error("Error loading initial messages:", error);
-      });
+      
+      loadMessages(orderId)
+        .then(() => {
+          if (isMounted) {
+            setIsLoaded(true);
+          }
+        })
+        .catch(error => {
+          console.error("Error loading messages:", error);
+          if (isMounted) {
+            setError("Failed to load messages");
+            setIsLoaded(true);
+          }
+        });
     }
     
-    // Refresh messages periodically (reduced frequency to every 30 seconds)
-    const refreshInterval = setInterval(() => {
-      if (orderId) {
-        console.log(`BusinessChatList: Auto-refreshing messages for order ${orderId}`);
-        loadMessages(orderId).catch(error => {
-          console.error("Error during auto-refresh:", error);
-        });
-      }
-    }, 30000); // Refresh every 30 seconds (increased from 15s to reduce load)
-    
-    return () => clearInterval(refreshInterval);
+    return () => {
+      isMounted = false;
+    };
   }, [orderId, loadMessages]);
   
   // Manual refresh function
   const handleRefresh = () => {
     if (orderId && !isRefreshing) {
+      setError("");
       console.log(`BusinessChatList: Manually refreshing messages for order ${orderId}`);
       
       loadMessages(orderId)
@@ -57,6 +68,7 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
         })
         .catch((error) => {
           console.error("Error refreshing messages:", error);
+          setError("Failed to refresh messages");
           toast({
             title: "Refresh failed",
             description: "Could not refresh messages. Please try again.",
@@ -136,20 +148,48 @@ const BusinessChatList = ({ orderId }: { orderId: string }) => {
     );
   }
 
+  if (!isLoaded && !error) {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="flex justify-between">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-8 w-20" />
+        </div>
+        {[1, 2].map((i) => (
+          <Skeleton key={i} className="h-16 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-4 space-y-4">
+        <div className="flex flex-col items-center gap-2">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+          <p className="text-destructive">{error}</p>
+        </div>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Trying again...' : 'Try Again'}
+        </Button>
+      </div>
+    );
+  }
+
   // If there are no driver messages, display a message
   if (driverIds.length === 0) {
     return (
       <div className="text-center p-4 space-y-4">
-        {isRefreshing ? (
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading messages...</p>
-          </div>
-        ) : (
-          <p className="text-muted-foreground">
-            No drivers have sent messages for this order yet.
-          </p>
-        )}
+        <p className="text-muted-foreground">
+          No drivers have sent messages for this order yet.
+        </p>
         <Button 
           size="sm" 
           variant="outline" 

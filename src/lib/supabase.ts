@@ -35,10 +35,6 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
       }
       
       console.log('Supabase connection successful!');
-      
-      // Enable realtime for messages table
-      await enableRealtimeForMessages();
-      
       return true;
     } catch (error) {
       console.error('Supabase connection check failed with exception:', error);
@@ -55,25 +51,4 @@ export const checkSupabaseConnection = async (retries = 3): Promise<boolean> => 
   }
   
   return false;
-};
-
-// Enable realtime specifically for the messages table
-const enableRealtimeForMessages = async () => {
-  try {
-    const channel = supabase.channel('public:messages');
-    channel.on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'messages'
-    }, (payload) => {
-      console.log('Realtime message update received:', payload);
-    }).subscribe((status) => {
-      console.log('Realtime subscription status for messages:', status);
-    });
-    
-    return channel;
-  } catch (error) {
-    console.error('Error setting up realtime for messages:', error);
-    return null;
-  }
 };
