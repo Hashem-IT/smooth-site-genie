@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useChat, ChatMessage } from "@/context/ChatContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ orderId, companyId }) => {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
     sendMessage,
     loadMessagesForOrder,
     loadMessagesForCompany,
+    markMessagesRead,
   } = useChat();
 
   const [inputMessage, setInputMessage] = useState("");
@@ -30,18 +32,44 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
     }
   }, [orderId, companyId, loadMessagesForOrder, loadMessagesForCompany]);
 
+  // Mark messages as read when viewing conversation
+  useEffect(() => {
+    if (conversationKey) {
+      markMessagesRead(conversationKey);
+    }
+  }, [conversationKey, markMessagesRead, chatMessages]);
+
   const messages: ChatMessage[] = chatMessages[conversationKey] || [];
 
   const handleSend = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || !user) return;
     setLoading(true);
+    
     try {
+      // Important: Must set a valid recipient_id when sending company messages
+      const recipientId = companyId && !orderId ? companyId : null;
+      
+      console.log("Sending message with:", {
+        orderId,
+        recipientId,
+        messageText: inputMessage.trim(),
+        userId: user.id
+      });
+      
       await sendMessage({
         orderId: orderId ?? null,
-        recipientId: null, // We don't have recipient logic here, default to null or add logic in future
+        recipientId: recipientId,
         messageText: inputMessage.trim(),
       });
+      
       setInputMessage("");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -50,7 +78,7 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
   if (!user) {
     return (
       <div className="text-center p-4">
-        <AlertCircle className="h-8 w-8 text-muted-foreground" />
+        <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
         <p>Please login to view the chat.</p>
       </div>
     );
@@ -58,7 +86,7 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
 
   return (
     <Card className="flex flex-col h-[400px] rounded-lg p-4 bg-background">
-      <CardContent className="flex flex-col flex-1 overflow-auto space-y-2 mb-4 rounded max-h-[320px]">
+      <CardContent className="flex flex-col flex-1 overflow-auto space-y-2 mb-4 rounded max-h-[320px] p-0">
         {messages.length === 0 ? (
           <p className="text-muted-foreground text-center mt-6">No messages yet.</p>
         ) : messages.map((msg) => (
@@ -69,8 +97,8 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
             }`}
           >
             <p>{msg.messageText}</p>
-            <p className="text-xs mt-1 text-muted-foreground text-right">
-              {msg.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <p className="text-xs mt-1 opacity-70">
+              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
         ))}

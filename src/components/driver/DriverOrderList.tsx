@@ -13,8 +13,7 @@ import BusinessChatList from "@/components/business/BusinessChatList";
 
 const DriverOrderList: React.FC = () => {
   const { user } = useAuth();
-  const { availableOrders, userOrders, updateOrderLocation } = useOrders();
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const { availableOrders, userOrders, updateOrderLocation, bookOrder } = useOrders();
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   React.useEffect(() => {
@@ -41,6 +40,10 @@ const DriverOrderList: React.FC = () => {
 
   const filteredAvailableOrders = statusFilter === "all" ? availableOrders : availableOrders.filter(order => order.status === statusFilter);
   const filteredUserOrders = statusFilter === "all" ? userOrders : userOrders.filter(order => order.status === statusFilter);
+
+  const handleBookOrder = async (orderId: string) => {
+    await bookOrder(orderId);
+  };
 
   const renderOrderCard = (order: Order, isMyOrder: boolean = false) => (
     <Card key={order.id} className="overflow-hidden">
@@ -102,15 +105,24 @@ const DriverOrderList: React.FC = () => {
           <span className="text-sm font-medium">Business: {order.businessName}</span>
         </div>
 
-        {/* Chatfenster NUR für offene Bestellungen */}
+        {/* Chat window - only for pending orders */}
         {order.status === "pending" && order.businessId && (
           <div className="mt-4">
+            <h3 className="text-sm font-medium mb-2">Chat with business</h3>
             <BusinessChatList companyId={order.businessId} />
           </div>
         )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {/* Chat button removed */}
+        {order.status === "pending" && !isMyOrder && (
+          <Button 
+            size="sm" 
+            onClick={() => handleBookOrder(order.id)}
+            className="w-full"
+          >
+            Book Order
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
