@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types";
 import { useOrders } from "@/context/OrderContext";
@@ -39,7 +38,6 @@ const BusinessOrderList: React.FC = () => {
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
   const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
 
-  // Track when a chat was last opened
   useEffect(() => {
     if (selectedOrder && isChatOpen) {
       setLastReadTimes(prev => ({
@@ -79,9 +77,8 @@ const BusinessOrderList: React.FC = () => {
   
   const businessOrders = user ? orders.filter(order => order.businessId === user.id) : [];
 
-  // Check if an order has new messages - simplified since chat functionality is removed
   const hasNewMessages = (order: Order): boolean => {
-    return false; // Always return false since chat is removed
+    return false;
   };
   
   const getFilteredOrders = (status: string) => {
@@ -298,7 +295,6 @@ const BusinessOrderList: React.FC = () => {
           )}
         </div>
         
-        {/* Chat section - collapsible list of driver chats */}
         <Collapsible
           open={expandedChats[order.id]}
           onOpenChange={() => toggleChatExpanded(order.id)}
@@ -321,7 +317,6 @@ const BusinessOrderList: React.FC = () => {
         </Collapsible>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {/* Status buttons */}
         <div className="flex flex-wrap gap-2">
           <Button 
             onClick={() => handleSetOrderStatus(order.id, "pending")} 
@@ -384,19 +379,6 @@ const BusinessOrderList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end mb-2">
-        <Button
-          onClick={handleManualRefresh}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2"
-          disabled={isRefreshing}
-        >
-          <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>{isRefreshing ? 'Aktualisiere...' : 'Aktualisieren'}</span>
-        </Button>
-      </div>
-      
       {pendingConfirmations > 0 && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-md flex items-center mb-4">
           <Bell className="h-5 w-5 text-amber-500 mr-2" />
