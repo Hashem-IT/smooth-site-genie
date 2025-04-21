@@ -105,7 +105,7 @@ const DriverOrderList: React.FC = () => {
           <span className="text-sm font-medium">Business: {order.businessName}</span>
         </div>
 
-        {/* Chat window - only for pending orders */}
+        {/* Chat window - only for pending orders with a business ID */}
         {order.status === "pending" && order.businessId && (
           <div className="mt-4">
             <h3 className="text-sm font-medium mb-2">Chat with business</h3>

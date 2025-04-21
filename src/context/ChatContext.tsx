@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Message, UserRole, Order } from "@/types";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { loadChatMessagesForOrder, loadChatMessagesForCompany, sendChatMessage, markMessagesAsRead } from "@/services/chatService";
 
 // Define chat message type for improved chat_messages table
 export interface ChatMessage {
@@ -17,7 +18,7 @@ export interface ChatMessage {
 }
 
 interface ChatContextType {
-  chatMessages: Record<string, ChatMessage[]>; // key can be orderId or companyId (for driver-company chats, we use companyId as string)
+  chatMessages: Record<string, ChatMessage[]>; // key can be orderId or companyId (for driver-company chats)
   sendMessage: (params: {
     orderId: string | null;
     recipientId: string | null;
@@ -25,7 +26,7 @@ interface ChatContextType {
   }) => Promise<void>;
   markMessagesRead: (conversationKey: string) => Promise<void>;
   loadMessagesForOrder: (orderId: string) => Promise<void>;
-  loadMessagesForCompany: (companyId: string) => Promise<void>;
+  loadMessagesForCompany: (driverId: string, companyId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -38,24 +39,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadMessagesForOrder = useCallback(async (orderId: string) => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const messages = (data || []).map(msg => ({
-        id: msg.id,
-        orderId: msg.order_id,
-        senderId: msg.sender_id,
-        recipientId: msg.recipient_id,
-        messageText: msg.message_text,
-        isRead: msg.is_read ?? false,
-        createdAt: new Date(msg.created_at),
-      }));
-
+      const messages = await loadChatMessagesForOrder(orderId);
       setChatMessages(prev => ({ ...prev, [orderId]: messages }));
     } catch (error: any) {
       console.error("Failed to load chat messages for order:", error);
@@ -67,32 +51,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Load messages for a company-driver chat (e.g. driver-company conversation)
-  // companyId here is the businessId (string)
-  const loadMessagesForCompany = useCallback(async (companyId: string) => {
+  // Load messages for a company-driver chat (without order)
+  const loadMessagesForCompany = useCallback(async (driverId: string, companyId: string) => {
     if (!user) return;
     try {
-      // We treat the company chat as messages between the driver and the company without order
-      // That means order_id is NULL and messages where sender or recipient is either user or companyId
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .is('order_id', null)
-        .or(`and(sender_id.eq.${user.id},recipient_id.eq.${companyId}),and(sender_id.eq.${companyId},recipient_id.eq.${user.id})`)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const messages = (data || []).map(msg => ({
-        id: msg.id,
-        orderId: null,
-        senderId: msg.sender_id,
-        recipientId: msg.recipient_id,
-        messageText: msg.message_text,
-        isRead: msg.is_read ?? false,
-        createdAt: new Date(msg.created_at),
-      }));
-
+      const messages = await loadChatMessagesForCompany(driverId, companyId);
       setChatMessages(prev => ({ ...prev, [companyId]: messages }));
     } catch (error: any) {
       console.error("Failed to load chat messages for company chat:", error);
@@ -105,7 +68,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   // Send message to specific conversation (order chat or company chat)
-  const sendMessage = useCallback(async ({ orderId, recipientId, messageText }: { orderId: string | null; recipientId: string | null; messageText: string }) => {
+  const sendMessage = useCallback(async ({ 
+    orderId, 
+    recipientId, 
+    messageText 
+  }: { 
+    orderId: string | null; 
+    recipientId: string | null; 
+    messageText: string;
+  }) => {
     if (!user) {
       toast({
         title: "Error",
@@ -114,23 +85,32 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       return;
     }
+    
+    if (!recipientId && !orderId) {
+      toast({
+        title: "Error",
+        description: "Missing recipient or order information.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert({
-          order_id: orderId,
-          sender_id: user.id,
-          recipient_id: recipientId,
-          message_text: messageText,
-        });
+      // Send the message
+      const success = await sendChatMessage(
+        user.id,
+        recipientId!,
+        messageText,
+        orderId
+      );
 
-      if (error) throw error;
+      if (!success) throw new Error("Failed to send message");
 
       // Refresh messages optimistically
       if (orderId) {
         await loadMessagesForOrder(orderId);
       } else if (recipientId) {
-        await loadMessagesForCompany(recipientId);
+        await loadMessagesForCompany(user.id, recipientId);
       }
     } catch (error: any) {
       console.error("Failed to send chat message:", error);
@@ -139,47 +119,42 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Failed to send chat message.",
         variant: "destructive",
       });
+      throw error;
     }
   }, [user, loadMessagesForOrder, loadMessagesForCompany]);
 
-  // Mark messages in a conversation as read (given conversation key: orderId or companyId)
+  // Mark messages in a conversation as read
   const markMessagesRead = useCallback(async (conversationKey: string) => {
-    if (!user) return;
-
+    if (!user || !conversationKey) return;
+    
     try {
-      if (!conversationKey) return;
-
-      // Determine if conversation is order chat or company chat by key format (UUID)
-      // If conversationKey is an orderId (UUID), update messages with order_id = conversationKey
-      // If company chat (recipientId), update messages with order_id null and sender or recipient = user or company
-      const updates = [];
-
-      // Mark unread messages as read where recipient is current user
-      const { error } = await supabase
-        .from('chat_messages')
-        .update({ is_read: true })
-        .eq('order_id', conversationKey)
-        .eq('recipient_id', user.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
-
-      // Optional: reload messages
-      if (conversationKey) {
-        if (conversationKey.includes('-')) {
-          // Likely orderId
-          await loadMessagesForOrder(conversationKey);
-        } else {
-          // Possible companyId
-          await loadMessagesForCompany(conversationKey);
-        }
+      // Determine if the conversation key is an order ID or company ID
+      const isOrderId = conversationKey.includes('-'); // UUID format check
+      
+      const success = await markMessagesAsRead(user.id, conversationKey, isOrderId);
+      
+      if (!success) {
+        console.error("Error marking messages as read");
+        return;
       }
+      
+      // Update UI optimistically
+      setChatMessages(prev => {
+        const messages = prev[conversationKey] || [];
+        return {
+          ...prev,
+          [conversationKey]: messages.map(msg => ({
+            ...msg,
+            isRead: msg.recipientId === user.id ? true : msg.isRead
+          }))
+        };
+      });
     } catch (error) {
       console.error("Failed to mark messages as read:", error);
     }
-  }, [user, loadMessagesForOrder, loadMessagesForCompany]);
+  }, [user]);
 
-  // Setup realtime subscription for chat messages relevant to this user
+  // Setup realtime subscription for chat messages
   useEffect(() => {
     if (!user) {
       setChatMessages({});
@@ -194,11 +169,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         table: 'chat_messages',
         filter: `recipient_id=eq.${user.id}`
       }, (payload) => {
-        // On new message for this user, reload related conversation messages
+        // Handle new message
         const newMessage = payload.new;
-        const orderKey = newMessage.order_id ?? newMessage.sender_id ?? '';
+        if (!newMessage) return;
+        
+        // Determine the conversation key (orderId or senderId)
+        const convKey = newMessage.order_id || newMessage.sender_id || '';
+        
         setChatMessages(prev => {
-          const convKey = newMessage.order_id || newMessage.sender_id || '';
           const existing = prev[convKey] || [];
           return {
             ...prev,
@@ -212,6 +190,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               createdAt: new Date(newMessage.created_at)
             }]
           };
+        });
+        
+        // Play a notification sound or show a toast notification
+        toast({
+          title: "New Message",
+          description: "You have received a new message",
         });
       })
       .subscribe();
@@ -238,4 +222,3 @@ export const useChat = (): ChatContextType => {
     throw new Error("useChat must be used within a ChatProvider");
   return context;
 };
-

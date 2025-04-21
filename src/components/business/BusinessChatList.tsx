@@ -25,19 +25,21 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
 
   // Load messages when orderId or companyId changes
   useEffect(() => {
+    if (!user) return;
+    
     if (orderId) {
       loadMessagesForOrder(orderId);
-    } else if (companyId) {
-      loadMessagesForCompany(companyId);
+    } else if (companyId && user) {
+      loadMessagesForCompany(user.id, companyId);
     }
-  }, [orderId, companyId, loadMessagesForOrder, loadMessagesForCompany]);
+  }, [orderId, companyId, user, loadMessagesForOrder, loadMessagesForCompany]);
 
   // Mark messages as read when viewing conversation
   useEffect(() => {
-    if (conversationKey) {
+    if (conversationKey && user) {
       markMessagesRead(conversationKey);
     }
-  }, [conversationKey, markMessagesRead, chatMessages]);
+  }, [conversationKey, markMessagesRead, chatMessages, user]);
 
   const messages: ChatMessage[] = chatMessages[conversationKey] || [];
 
@@ -46,8 +48,13 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
     setLoading(true);
     
     try {
-      // Important: Must set a valid recipient_id when sending company messages
-      const recipientId = companyId && !orderId ? companyId : null;
+      // For company chat, we must set the recipientId to the company id
+      // For order chat, we use null as recipient (legacy behavior)
+      const recipientId = companyId || null;
+      
+      if (!recipientId && !orderId) {
+        throw new Error("Either recipientId or orderId must be provided");
+      }
       
       console.log("Sending message with:", {
         orderId,
@@ -58,7 +65,7 @@ const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ 
       
       await sendMessage({
         orderId: orderId ?? null,
-        recipientId: recipientId,
+        recipientId,
         messageText: inputMessage.trim(),
       });
       
