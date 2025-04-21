@@ -1,3 +1,4 @@
+
 import React from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -6,7 +7,6 @@ import DriverOrderList from "@/components/driver/DriverOrderList";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import BusinessChatList from "@/components/business/BusinessChatList";
 
 const Drivers = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -52,15 +52,6 @@ const Drivers = () => {
             <div className="py-4">
               <h2 className="text-xl font-semibold mb-4">Orders</h2>
               <DriverOrderList />
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold mb-2">Chat mit Ihrer Firma</h2>
-              {user.businessId ? (
-                <BusinessChatList companyId={user.businessId} />
-              ) : (
-                <div className="text-muted-foreground text-sm px-4 py-6 border rounded">Keiner Firma zugeordnet.</div>
-              )}
             </div>
           </div>
         ) : (
