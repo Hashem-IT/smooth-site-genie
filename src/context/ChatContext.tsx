@@ -1,5 +1,4 @@
 
-// This file has been emptied as the chat functionality has been removed
 import React from 'react';
 
 // Creating an empty provider to avoid breaking existing imports
@@ -10,5 +9,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useChat = () => {
-  return {};
+  // Return an empty object with orderMessages function that returns an empty array
+  return {
+    orderMessages: () => []
+  };
 };

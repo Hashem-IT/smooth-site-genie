@@ -16,7 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
-import { useChat } from "@/context/ChatContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const BusinessOrderList: React.FC = () => {
@@ -25,7 +24,6 @@ const BusinessOrderList: React.FC = () => {
     userOrders,
     loadOrders
   } = useOrders();
-  const { orderMessages } = useChat();
   const {
     user
   } = useAuth();
@@ -81,15 +79,9 @@ const BusinessOrderList: React.FC = () => {
   
   const businessOrders = user ? orders.filter(order => order.businessId === user.id) : [];
 
-  // Check if an order has new messages
+  // Check if an order has new messages - simplified since chat functionality is removed
   const hasNewMessages = (order: Order): boolean => {
-    const lastRead = lastReadTimes[order.id];
-    if (!lastRead) return orderMessages(order.id).length > 0;
-    
-    return orderMessages(order.id).some(msg => 
-      msg.createdAt > lastRead && 
-      msg.senderId !== user?.id
-    );
+    return false; // Always return false since chat is removed
   };
   
   const getFilteredOrders = (status: string) => {
@@ -313,14 +305,11 @@ const BusinessOrderList: React.FC = () => {
           className="mt-4"
         >
           <CollapsibleTrigger asChild>
-            <div className={`flex items-center justify-between p-2 ${hasNewMessages(order) ? 'bg-blue-50 border border-blue-200' : 'bg-muted'} rounded-md cursor-pointer`}>
+            <div className="flex items-center justify-between p-2 bg-muted rounded-md cursor-pointer">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 <span className="text-sm font-medium">
                   Chat with Drivers
-                  {hasNewMessages(order) && (
-                    <span className="ml-2 h-2 w-2 bg-red-500 rounded-full inline-block" />
-                  )}
                 </span>
               </div>
               {expandedChats[order.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -423,16 +412,10 @@ const BusinessOrderList: React.FC = () => {
         <TabsList className="grid grid-cols-4 mb-4">
           <TabsTrigger value="all" className="text-center relative">
             Alle
-            {businessOrders.some(order => hasNewMessages(order)) && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
-            )}
             {businessOrders.length > 0 && <span className="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{businessOrders.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="pending" className="text-center relative">
             Open
-            {businessOrders.filter(o => o.status === "pending" && hasNewMessages(o)).length > 0 && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
-            )}
             {businessOrders.filter(o => o.status === "pending").length > 0 && 
               <span className="ml-1 text-xs bg-yellow-200 text-yellow-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "pending").length}
@@ -441,9 +424,6 @@ const BusinessOrderList: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="booked" className="text-center relative">
             Ordered
-            {businessOrders.filter(o => o.status === "booked" && hasNewMessages(o)).length > 0 && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
-            )}
             {businessOrders.filter(o => o.status === "booked").length > 0 && 
               <span className="ml-1 text-xs bg-blue-200 text-blue-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "booked").length}
@@ -452,9 +432,6 @@ const BusinessOrderList: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="delivered" className="text-center relative">
             Delivered
-            {businessOrders.filter(o => o.status === "delivered" && hasNewMessages(o)).length > 0 && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
-            )}
             {businessOrders.filter(o => o.status === "delivered").length > 0 && 
               <span className="ml-1 text-xs bg-purple-200 text-purple-700 rounded-full px-2">
                 {businessOrders.filter(o => o.status === "delivered").length}
