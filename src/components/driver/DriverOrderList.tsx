@@ -9,6 +9,7 @@ import { Package, Clock, MapPin, Filter, Circle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import BusinessChatList from "@/components/business/BusinessChatList";
 
 const DriverOrderList: React.FC = () => {
   const { user } = useAuth();
@@ -100,6 +101,13 @@ const DriverOrderList: React.FC = () => {
         <div className="mt-2 p-2 bg-muted rounded-md">
           <span className="text-sm font-medium">Business: {order.businessName}</span>
         </div>
+
+        {/* Chatfenster NUR für offene Bestellungen */}
+        {order.status === "pending" && order.businessId && (
+          <div className="mt-4">
+            <BusinessChatList companyId={order.businessId} />
+          </div>
+        )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         {/* Chat button removed */}
