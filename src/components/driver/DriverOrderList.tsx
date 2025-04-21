@@ -5,16 +5,32 @@ import { useOrders } from "@/context/OrderContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, MapPin, Filter, Circle } from "lucide-react";
+import { Package, Clock, MapPin, MessageSquare, Filter, Circle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import ChatInterface from "../shared/ChatInterface";
 import { useAuth } from "@/context/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import BusinessChatList from "@/components/business/BusinessChatList";
+import { useChat } from "@/context/ChatContext";
 
 const DriverOrderList: React.FC = () => {
   const { user } = useAuth();
-  const { availableOrders, userOrders, updateOrderLocation, bookOrder } = useOrders();
+  const { availableOrders, userOrders, updateOrderLocation } = useOrders();
+  const { orderMessages } = useChat();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
+
+  // Track when a chat was last opened for each order
+  useEffect(() => {
+    if (selectedOrder && isChatOpen) {
+      setLastReadTimes(prev => ({
+        ...prev,
+        [selectedOrder.id]: new Date()
+      }));
+    }
+  }, [isChatOpen, selectedOrder]);
 
   React.useEffect(() => {
     if (!user) return;
@@ -31,6 +47,27 @@ const DriverOrderList: React.FC = () => {
     return () => clearInterval(interval);
   }, [userOrders, user, updateOrderLocation]);
 
+  // Check for new messages in an order
+  const hasNewMessages = (order: Order): boolean => {
+    const lastRead = lastReadTimes[order.id];
+    if (!lastRead) return orderMessages(order.id).length > 0;
+    
+    return orderMessages(order.id).some(msg => 
+      msg.createdAt > lastRead && 
+      msg.senderId !== user?.id
+    );
+  };
+
+  const openChat = (order: Order) => {
+    setSelectedOrder(order);
+    setIsChatOpen(true);
+    // Mark as read when opening chat
+    setLastReadTimes(prev => ({
+      ...prev,
+      [order.id]: new Date()
+    }));
+  };
+
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-500",
     booked: "bg-blue-500",
@@ -40,10 +77,6 @@ const DriverOrderList: React.FC = () => {
 
   const filteredAvailableOrders = statusFilter === "all" ? availableOrders : availableOrders.filter(order => order.status === statusFilter);
   const filteredUserOrders = statusFilter === "all" ? userOrders : userOrders.filter(order => order.status === statusFilter);
-
-  const handleBookOrder = async (orderId: string) => {
-    await bookOrder(orderId);
-  };
 
   const renderOrderCard = (order: Order, isMyOrder: boolean = false) => (
     <Card key={order.id} className="overflow-hidden">
@@ -65,7 +98,7 @@ const DriverOrderList: React.FC = () => {
         <div className="grid grid-cols-3 gap-2 mb-2">
           <div className="text-sm">
             <span className="text-muted-foreground">Price:</span>{" "}
-            <span className="font-medium">€{order.price?.toFixed(2)}</span>
+            <span className="font-medium">€{order.price.toFixed(2)}</span>
           </div>
           <div className="text-sm">
             <span className="text-muted-foreground">Weight:</span>{" "}
@@ -104,25 +137,20 @@ const DriverOrderList: React.FC = () => {
         <div className="mt-2 p-2 bg-muted rounded-md">
           <span className="text-sm font-medium">Business: {order.businessName}</span>
         </div>
-
-        {/* Chat window - only for pending orders with a business ID */}
-        {order.status === "pending" && order.businessId && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Chat with business</h3>
-            <BusinessChatList companyId={order.businessId} />
-          </div>
-        )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {order.status === "pending" && !isMyOrder && (
-          <Button 
-            size="sm" 
-            onClick={() => handleBookOrder(order.id)}
-            className="w-full"
-          >
-            Book Order
-          </Button>
-        )}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="flex items-center gap-1 relative" 
+          onClick={() => openChat(order)}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Chat with Business
+          {hasNewMessages(order) && (
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+          )}
+        </Button>
       </CardFooter>
     </Card>
   );
@@ -148,8 +176,18 @@ const DriverOrderList: React.FC = () => {
       
       <Tabs defaultValue="available">
         <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="available">Available Orders</TabsTrigger>
-          <TabsTrigger value="my-orders">My Orders</TabsTrigger>
+          <TabsTrigger value="available" className="relative">
+            Available Orders
+            {filteredAvailableOrders.some(order => hasNewMessages(order)) && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="my-orders" className="relative">
+            My Orders
+            {filteredUserOrders.some(order => hasNewMessages(order)) && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+            )}
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="available" className="space-y-4">
@@ -176,6 +214,23 @@ const DriverOrderList: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
+      
+      {selectedOrder && (
+        <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                <span>Chat - {selectedOrder.name}</span>
+              </DialogTitle>
+              <DialogDescription>
+                Chat with {selectedOrder.businessName} about this order
+              </DialogDescription>
+            </DialogHeader>
+            <ChatInterface orderId={selectedOrder.id} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

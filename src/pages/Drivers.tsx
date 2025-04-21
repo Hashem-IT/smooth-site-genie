@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const Drivers = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
+  // Show a loading state while authentication is being checked
   if (isLoading && !isAuthenticated) {
     return (
       <Layout>

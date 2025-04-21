@@ -1,14 +1,17 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Building, Truck } from "lucide-react";
+
 const Index = () => {
-  return <Layout>
+  return (
+    <Layout>
       <div className="container py-16">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="flex justify-center mb-6 bg-transparent py-[50px] px-[50px] my-[50px] mx-[50px] rounded-none">
-            <img alt="EasyDrop Logo" src="/lovable-uploads/61c5dbee-88f9-49ff-9d5d-b838021f1a5c.png" className="h-32 w-50 rounded-full object-cover" />
+          <div className="flex justify-center mb-6">
+            <img src="/logo.png" alt="EasyDrop Logo" className="h-24 w-auto" />
           </div>
           <h1 className="text-4xl font-bold mb-4">
             EasyDrop Delivery Service
@@ -82,6 +85,8 @@ const Index = () => {
           </div>
         </div>
       </div>
-    </Layout>;
+    </Layout>
+  );
 };
+
 export default Index;

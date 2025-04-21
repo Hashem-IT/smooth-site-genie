@@ -1,224 +1,234 @@
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import { Message, UserRole, Order } from "@/types";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Message } from "@/types";
 import { useAuth } from "./AuthContext";
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
-import { loadChatMessagesForOrder, loadChatMessagesForCompany, sendChatMessage, markMessagesAsRead } from "@/services/chatService";
-
-// Define chat message type for improved chat_messages table
-export interface ChatMessage {
-  id: string;
-  orderId: string | null;
-  senderId: string;
-  recipientId: string | null;
-  messageText: string;
-  isRead: boolean;
-  createdAt: Date;
-}
 
 interface ChatContextType {
-  chatMessages: Record<string, ChatMessage[]>; // key can be orderId or companyId (for driver-company chats)
-  sendMessage: (params: {
-    orderId: string | null;
-    recipientId: string | null;
-    messageText: string;
-  }) => Promise<void>;
-  markMessagesRead: (conversationKey: string) => Promise<void>;
-  loadMessagesForOrder: (orderId: string) => Promise<void>;
-  loadMessagesForCompany: (driverId: string, companyId: string) => Promise<void>;
+  messages: Message[];
+  sendMessage: (orderId: string, text: string) => Promise<void>;
+  loadMessages: (orderId: string) => Promise<void>;
+  orderMessages: (orderId: string) => Message[];
+  hasNewMessages: (orderId: string, lastReadTime?: Date) => boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const { user } = useAuth();
-  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
 
-  // Load messages for a specific order chat
-  const loadMessagesForOrder = useCallback(async (orderId: string) => {
-    if (!user) return;
-    try {
-      const messages = await loadChatMessagesForOrder(orderId);
-      setChatMessages(prev => ({ ...prev, [orderId]: messages }));
-    } catch (error: any) {
-      console.error("Failed to load chat messages for order:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load chat messages for order.",
-        variant: "destructive",
-      });
-    }
-  }, [user]);
-
-  // Load messages for a company-driver chat (without order)
-  const loadMessagesForCompany = useCallback(async (driverId: string, companyId: string) => {
-    if (!user) return;
-    try {
-      const messages = await loadChatMessagesForCompany(driverId, companyId);
-      setChatMessages(prev => ({ ...prev, [companyId]: messages }));
-    } catch (error: any) {
-      console.error("Failed to load chat messages for company chat:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load chat messages for company chat.",
-        variant: "destructive",
-      });
-    }
-  }, [user]);
-
-  // Send message to specific conversation (order chat or company chat)
-  const sendMessage = useCallback(async ({ 
-    orderId, 
-    recipientId, 
-    messageText 
-  }: { 
-    orderId: string | null; 
-    recipientId: string | null; 
-    messageText: string;
-  }) => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to send messages.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!recipientId && !orderId) {
-      toast({
-        title: "Error",
-        description: "Missing recipient or order information.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      // Send the message
-      const success = await sendChatMessage(
-        user.id,
-        recipientId!,
-        messageText,
-        orderId
-      );
-
-      if (!success) throw new Error("Failed to send message");
-
-      // Refresh messages optimistically
-      if (orderId) {
-        await loadMessagesForOrder(orderId);
-      } else if (recipientId) {
-        await loadMessagesForCompany(user.id, recipientId);
-      }
-    } catch (error: any) {
-      console.error("Failed to send chat message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send chat message.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  }, [user, loadMessagesForOrder, loadMessagesForCompany]);
-
-  // Mark messages in a conversation as read
-  const markMessagesRead = useCallback(async (conversationKey: string) => {
-    if (!user || !conversationKey) return;
-    
-    try {
-      // Determine if the conversation key is an order ID or company ID
-      const isOrderId = conversationKey.includes('-'); // UUID format check
-      
-      const success = await markMessagesAsRead(user.id, conversationKey, isOrderId);
-      
-      if (!success) {
-        console.error("Error marking messages as read");
-        return;
-      }
-      
-      // Update UI optimistically
-      setChatMessages(prev => {
-        const messages = prev[conversationKey] || [];
-        return {
-          ...prev,
-          [conversationKey]: messages.map(msg => ({
-            ...msg,
-            isRead: msg.recipientId === user.id ? true : msg.isRead
-          }))
-        };
-      });
-    } catch (error) {
-      console.error("Failed to mark messages as read:", error);
-    }
-  }, [user]);
-
-  // Setup realtime subscription for chat messages
+  // Auto-load all messages when user logs in
   useEffect(() => {
-    if (!user) {
-      setChatMessages({});
-      return;
+    if (user) {
+      console.log("User logged in, loading all messages");
+      loadAllMessages();
+      setupMessageSubscription();
     }
-
-    const channel = supabase
-      .channel(`chat-user-${user.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `recipient_id=eq.${user.id}`
-      }, (payload) => {
-        // Handle new message
-        const newMessage = payload.new;
-        if (!newMessage) return;
-        
-        // Determine the conversation key (orderId or senderId)
-        const convKey = newMessage.order_id || newMessage.sender_id || '';
-        
-        setChatMessages(prev => {
-          const existing = prev[convKey] || [];
-          return {
-            ...prev,
-            [convKey]: [...existing, {
-              id: newMessage.id,
-              orderId: newMessage.order_id,
-              senderId: newMessage.sender_id,
-              recipientId: newMessage.recipient_id,
-              messageText: newMessage.message_text,
-              isRead: newMessage.is_read ?? false,
-              createdAt: new Date(newMessage.created_at)
-            }]
-          };
-        });
-        
-        // Play a notification sound or show a toast notification
-        toast({
-          title: "New Message",
-          description: "You have received a new message",
-        });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [user]);
 
-  const value: ChatContextType = {
-    chatMessages,
-    sendMessage,
-    markMessagesRead,
-    loadMessagesForOrder,
-    loadMessagesForCompany,
+  // Function to load messages for all orders
+  const loadAllMessages = async () => {
+    if (!user) return;
+
+    try {
+      console.log("Loading all messages");
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error("Error loading messages:", error);
+        throw error;
+      }
+
+      if (data) {
+        console.log(`Loaded ${data.length} messages`);
+        const formattedMessages: Message[] = data.map(item => ({
+          id: item.id,
+          orderId: item.order_id,
+          senderId: item.sender_id,
+          senderName: item.sender_name,
+          senderRole: item.sender_role as "business" | "driver",
+          text: item.text,
+          createdAt: new Date(item.created_at),
+        }));
+
+        setMessages(formattedMessages);
+      }
+    } catch (error: any) {
+      console.error("Error loading messages:", error.message);
+      // Don't show toast for this error as it appears to be related to permissions
+      // and we'll handle it gracefully
+    }
   };
 
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  // Set up realtime subscription for messages
+  const setupMessageSubscription = () => {
+    console.log("Setting up message subscription");
+    const channel = supabase
+      .channel('messages_changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages'
+        },
+        (payload: any) => {
+          console.log("New message received:", payload);
+          const newMessage = payload.new;
+          setMessages(prev => [...prev, {
+            id: newMessage.id,
+            orderId: newMessage.order_id,
+            senderId: newMessage.sender_id,
+            senderName: newMessage.sender_name,
+            senderRole: newMessage.sender_role as "business" | "driver",
+            text: newMessage.text,
+            createdAt: new Date(newMessage.created_at),
+          }]);
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      console.log("Removing message subscription");
+      supabase.removeChannel(channel);
+    };
+  };
+
+  // Add this function to filter messages by order ID
+  const orderMessages = (orderId: string): Message[] => {
+    return messages.filter(message => message.orderId === orderId);
+  };
+
+  // Check if there are new messages since last read
+  const hasNewMessages = (orderId: string, lastReadTime?: Date): boolean => {
+    if (!lastReadTime) return false;
+    
+    return messages.some(message => 
+      message.orderId === orderId && 
+      message.createdAt > lastReadTime && 
+      message.senderId !== user?.id
+    );
+  };
+
+  // Load messages for a specific order
+  const loadMessages = async (orderId: string) => {
+    if (!user) return;
+
+    try {
+      console.log(`Loading messages for order ${orderId}`);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error("Error loading messages for order:", error);
+        throw error;
+      }
+
+      if (data) {
+        console.log(`Loaded ${data.length} messages for order ${orderId}`);
+        const orderSpecificMessages: Message[] = data.map(item => ({
+          id: item.id,
+          orderId: item.order_id,
+          senderId: item.sender_id,
+          senderName: item.sender_name,
+          senderRole: item.sender_role as "business" | "driver",
+          text: item.text,
+          createdAt: new Date(item.created_at),
+        }));
+
+        // Update only messages for this order, keep other messages
+        setMessages(prev => [
+          ...prev.filter(msg => msg.orderId !== orderId),
+          ...orderSpecificMessages
+        ]);
+      }
+    } catch (error: any) {
+      console.error("Error loading messages for order:", error.message);
+    }
+  };
+
+  // Send a new message
+  const sendMessage = async (orderId: string, text: string) => {
+    if (!user || !text.trim()) {
+      console.log("Cannot send message: user not logged in or text empty");
+      return;
+    }
+
+    try {
+      console.log(`Sending message to order ${orderId}: ${text}`);
+      
+      // Create a new message object with all required fields
+      const newMessage = {
+        order_id: orderId,
+        sender_id: user.id,
+        sender_name: user.name,
+        sender_role: user.role,
+        text: text.trim(),
+        created_at: new Date().toISOString(),
+      };
+
+      // Insert directly into messages table without any joins to users/profiles
+      const { error } = await supabase
+        .from('messages')
+        .insert(newMessage);
+
+      if (error) {
+        console.error("Error sending message:", error);
+        throw error;
+      }
+
+      console.log("Message sent successfully");
+      
+      // Add message to local state for immediate display
+      const localMessage: Message = {
+        id: `temp-${Date.now()}`, // Temporary ID until we get the real one from subscription
+        orderId,
+        senderId: user.id,
+        senderName: user.name,
+        senderRole: user.role,
+        text: text.trim(),
+        createdAt: new Date(),
+      };
+      
+      setMessages(prev => [...prev, localMessage]);
+      
+    } catch (error: any) {
+      console.error("Error sending message:", error.message);
+      toast({
+        title: "Message not sent",
+        description: "There was a problem sending your message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <ChatContext.Provider
+      value={{
+        messages,
+        sendMessage,
+        loadMessages,
+        orderMessages,
+        hasNewMessages,
+      }}
+    >
+      {children}
+    </ChatContext.Provider>
+  );
 };
 
-export const useChat = (): ChatContextType => {
+export const useChat = () => {
   const context = useContext(ChatContext);
-  if (!context)
+  if (context === undefined) {
     throw new Error("useChat must be used within a ChatProvider");
+  }
   return context;
 };

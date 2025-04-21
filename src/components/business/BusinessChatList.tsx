@@ -1,133 +1,151 @@
 
-import React, { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useChat, ChatMessage } from "@/context/ChatContext";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
+import { useChat } from "@/context/ChatContext";
+import { useOrders } from "@/context/OrderContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import ChatInterface from "../shared/ChatInterface";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { MessageSquare, User } from "lucide-react";
 
-const BusinessChatList: React.FC<{ orderId?: string; companyId?: string }> = ({ orderId, companyId }) => {
+const BusinessChatList = ({ orderId }: { orderId: string }) => {
   const { user } = useAuth();
-  const { 
-    chatMessages, 
-    sendMessage,
-    loadMessagesForOrder,
-    loadMessagesForCompany,
-    markMessagesRead,
-  } = useChat();
+  const { messages, orderMessages } = useChat();
+  const { orders } = useOrders();
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [lastReadTimes, setLastReadTimes] = useState<Record<string, Date>>({});
 
-  const [inputMessage, setInputMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const order = orders.find(o => o.id === orderId);
+  const orderSpecificMessages = orderMessages(orderId);
 
-  const conversationKey = orderId ?? companyId ?? "";
-
-  // Load messages when orderId or companyId changes
+  // Track when a chat was last opened for each driver
   useEffect(() => {
-    if (!user) return;
+    if (selectedDriverId && isChatOpen) {
+      setLastReadTimes(prev => ({
+        ...prev,
+        [selectedDriverId]: new Date()
+      }));
+    }
+  }, [isChatOpen, selectedDriverId]);
+
+  // Get unique driver IDs who have sent messages about this order
+  const driverIds = Array.from(new Set(
+    orderSpecificMessages
+      .filter(msg => msg.senderRole === "driver")
+      .map(msg => msg.senderId)
+  ));
+
+  // Check if a driver has sent new messages
+  const hasNewMessages = (driverId: string): boolean => {
+    const lastRead = lastReadTimes[driverId];
+    if (!lastRead) return true;
     
-    if (orderId) {
-      loadMessagesForOrder(orderId);
-    } else if (companyId && user) {
-      loadMessagesForCompany(user.id, companyId);
-    }
-  }, [orderId, companyId, user, loadMessagesForOrder, loadMessagesForCompany]);
-
-  // Mark messages as read when viewing conversation
-  useEffect(() => {
-    if (conversationKey && user) {
-      markMessagesRead(conversationKey);
-    }
-  }, [conversationKey, markMessagesRead, chatMessages, user]);
-
-  const messages: ChatMessage[] = chatMessages[conversationKey] || [];
-
-  const handleSend = async () => {
-    if (!inputMessage.trim() || !user) return;
-    setLoading(true);
-    
-    try {
-      // For company chat, we must set the recipientId to the company id
-      // For order chat, we use null as recipient (legacy behavior)
-      const recipientId = companyId || null;
-      
-      if (!recipientId && !orderId) {
-        throw new Error("Either recipientId or orderId must be provided");
-      }
-      
-      console.log("Sending message with:", {
-        orderId,
-        recipientId,
-        messageText: inputMessage.trim(),
-        userId: user.id
-      });
-      
-      await sendMessage({
-        orderId: orderId ?? null,
-        recipientId,
-        messageText: inputMessage.trim(),
-      });
-      
-      setInputMessage("");
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    return orderSpecificMessages.some(msg => 
+      msg.senderId === driverId && 
+      msg.createdAt > lastRead
+    );
   };
 
-  if (!user) {
+  const openChat = (driverId: string) => {
+    setSelectedDriverId(driverId);
+    setIsChatOpen(true);
+    setLastReadTimes(prev => ({
+      ...prev,
+      [driverId]: new Date()
+    }));
+  };
+
+  // Get the name of a driver by their ID
+  const getDriverName = (driverId: string): string => {
+    const message = orderSpecificMessages.find(msg => msg.senderId === driverId);
+    return message?.senderName || "Unknown Driver";
+  };
+
+  // Get the latest message from a specific driver
+  const getLatestMessage = (driverId: string) => {
+    const driverMessages = orderSpecificMessages.filter(
+      msg => msg.senderId === driverId || msg.senderId === user?.id
+    );
+    
+    if (driverMessages.length === 0) return null;
+    
+    // Sort messages by date and get the latest one
+    return driverMessages.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    )[0];
+  };
+
+  if (!order || !user || user.role !== "business" || driverIds.length === 0) {
     return (
-      <div className="text-center p-4">
-        <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-        <p>Please login to view the chat.</p>
+      <div className="text-center p-4 text-muted-foreground">
+        No chat messages for this order yet.
       </div>
     );
   }
 
   return (
-    <Card className="flex flex-col h-[400px] rounded-lg p-4 bg-background">
-      <CardContent className="flex flex-col flex-1 overflow-auto space-y-2 mb-4 rounded max-h-[320px] p-0">
-        {messages.length === 0 ? (
-          <p className="text-muted-foreground text-center mt-6">No messages yet.</p>
-        ) : messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`p-2 rounded-md max-w-[80%] ${
-              msg.senderId === user.id ? "bg-primary text-primary-foreground self-end" : "bg-muted text-muted-foreground self-start"
-            }`}
-          >
-            <p>{msg.messageText}</p>
-            <p className="text-xs mt-1 opacity-70">
-              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </p>
-          </div>
-        ))}
-      </CardContent>
-      <div className="flex gap-2">
-        <Input
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="Type a message..."
-          onKeyDown={async (e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              await handleSend();
-            }
-          }}
-          disabled={loading}
-        />
-        <Button onClick={handleSend} disabled={loading}>
-          Send
-        </Button>
+    <div>
+      <div className="space-y-2 mt-2">
+        {driverIds.map(driverId => {
+          const driverName = getDriverName(driverId);
+          const latestMessage = getLatestMessage(driverId);
+          const hasNewMsg = hasNewMessages(driverId);
+          
+          return (
+            <Card 
+              key={driverId} 
+              className={`cursor-pointer hover:bg-accent/50 ${hasNewMsg ? 'border-primary' : ''}`}
+              onClick={() => openChat(driverId)}
+            >
+              <CardContent className="p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-muted p-2 rounded-full">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm flex items-center gap-1">
+                      {driverName}
+                      {hasNewMsg && (
+                        <span className="h-2 w-2 bg-red-500 rounded-full inline-block" />
+                      )}
+                    </h4>
+                    {latestMessage && (
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                        {latestMessage.text}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {latestMessage && new Date(latestMessage.createdAt).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </span>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-    </Card>
+
+      {selectedDriverId && (
+        <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                <span>Chat - {order.name}</span>
+              </DialogTitle>
+              <DialogDescription>
+                Chat with {getDriverName(selectedDriverId)} about this order
+              </DialogDescription>
+            </DialogHeader>
+            <ChatInterface orderId={orderId} partnerId={selectedDriverId} />
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 };
 
