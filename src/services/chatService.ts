@@ -1,105 +1,73 @@
-import { Message, UserRole } from "@/types";
-import { User } from "@/types";
-import { toast } from "@/hooks/use-toast";
+
 import { supabase } from "@/lib/supabase";
+import { ChatMessage } from "@/context/ChatContext";
 
-// Load messages from Supabase
-export const loadMessagesFromSupabase = async (orderId?: string): Promise<Message[]> => {
-  try {
-    console.log(`Attempting to load messages ${orderId ? `for order ${orderId}` : 'for all orders'}`);
-    
-    let query = supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: true });
-    
-    // If orderId is provided, filter by it
-    if (orderId) {
-      query = query.eq('order_id', orderId);
-    }
-    
-    const { data, error } = await query;
+// Load chat messages for a given order id
+export const loadChatMessagesForOrder = async (orderId: string): Promise<ChatMessage[]> => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
 
-    if (error) {
-      console.error("Error loading messages from Supabase:", error);
-      toast({
-        title: "Error loading messages",
-        description: `Could not load chat messages: ${error.message}`,
-        variant: "destructive",
-      });
-      return [];
-    }
-    
-    console.log(`Loaded ${data?.length || 0} messages from Supabase${orderId ? ` for order ${orderId}` : ''}`);
-    
-    // Convert from Supabase format to app format
-    return (data || []).map(item => ({
-      id: item.id,
-      orderId: item.order_id,
-      senderId: item.sender_id,
-      senderName: item.sender_name,
-      senderRole: item.sender_role as UserRole,
-      text: item.text,
-      createdAt: new Date(item.created_at),
-    }));
-  } catch (error) {
-    console.error("Exception loading messages from Supabase:", error);
-    toast({
-      title: "Error loading messages",
-      description: "An unexpected error occurred while loading messages.",
-      variant: "destructive",
-    });
+  if (error) {
+    console.error("Error loading chat messages for order:", error);
     return [];
   }
+  return (data || []).map(msg => ({
+    id: msg.id,
+    orderId: msg.order_id,
+    senderId: msg.sender_id,
+    recipientId: msg.recipient_id,
+    messageText: msg.message_text,
+    isRead: msg.is_read ?? false,
+    createdAt: new Date(msg.created_at),
+  }));
 };
 
-// Send message to Supabase database
-export const sendMessageToSupabase = async (
-  orderId: string,
+// Load chat messages between a driver and a company (businessId), orderId should be null
+export const loadChatMessagesForCompany = async (driverId: string, companyId: string): Promise<ChatMessage[]> => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('*')
+    .is('order_id', null)
+    .or(`and(sender_id.eq.${driverId},recipient_id.eq.${companyId}),and(sender_id.eq.${companyId},recipient_id.eq.${driverId})`)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error("Error loading company chat messages:", error);
+    return [];
+  }
+  return (data || []).map(msg => ({
+    id: msg.id,
+    orderId: null,
+    senderId: msg.sender_id,
+    recipientId: msg.recipient_id,
+    messageText: msg.message_text,
+    isRead: msg.is_read ?? false,
+    createdAt: new Date(msg.created_at),
+  }));
+};
+
+// Send a message in a chat (order or company chat)
+export const sendChatMessage = async (
   senderId: string,
-  senderName: string,
-  senderRole: string,
-  text: string
+  recipientId: string | null,
+  messageText: string,
+  orderId: string | null = null
 ): Promise<boolean> => {
-  try {
-    console.log("Sending message to Supabase with data:", {
+  const { error } = await supabase
+    .from('chat_messages')
+    .insert({
       order_id: orderId,
       sender_id: senderId,
-      sender_name: senderName,
-      sender_role: senderRole,
-      text: text.trim()
+      recipient_id: recipientId,
+      message_text: messageText,
     });
-    
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        order_id: orderId,
-        sender_id: senderId,
-        sender_name: senderName,
-        sender_role: senderRole,
-        text: text.trim()
-      })
-      .select();
 
-    if (error) {
-      console.error("Error sending message to Supabase:", error);
-      toast({
-        title: "Message not sent",
-        description: `Error: ${error.message}. Please try again.`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    
-    console.log("Message successfully sent to Supabase:", data);
-    return true;
-  } catch (error) {
-    console.error("Exception sending message:", error);
-    toast({
-      title: "Message not sent",
-      description: "An unexpected error occurred. Please try again.",
-      variant: "destructive",
-    });
+  if (error) {
+    console.error("Error sending chat message:", error);
     return false;
   }
+  return true;
 };
